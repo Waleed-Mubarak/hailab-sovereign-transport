@@ -4,11 +4,11 @@ import unittest
 import sys
 import os
 
-# إضافة المجلد الذي يحتوي على الملفات إلى مسار بايثون ديناميكياً
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# إضافة جذر المشروع إلى مسار بايثون
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
-# إذا كان ملف session_controller داخل مجلد فرعي، استبدله بالمسار الصحيح، أو اتركه هكذا إذا كان في الجذر:
-from session_controller import SovereignSessionController
+# استيراد المراقب من داخل مجلد الطبقة الثانية الصحيح
+from layer2_transport.session_controller import SovereignSessionController
 
 class TestSovereignSessionController(unittest.TestCase):
     def test_layer2_session_management(self):
