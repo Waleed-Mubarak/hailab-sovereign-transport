@@ -1,1 +1,98 @@
+"""
+Layer 5 / Extension: Space & VSAT Delay-Tolerant Networking (DTN) Simulator (Dr. Hikmat Hardened Pattern)
+Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
+"""
+import time
+import hmac
+import hashlib
+from typing import Dict, Any, List
+
+class SecureRegistrySet(set):
+    def clear(self):
+        raise PermissionError("Direct clearing of protected registry set is strictly prohibited.")
+    def pop(self):
+        raise PermissionError("Direct popping from protected registry set is strictly prohibited.")
+
+_DTN_REGISTRY = {}
+
+class SovereignDTNTransportSimulator:
+    def __init__(self, node_id: str, max_buffer_size: int = 100, link_timeout: float = 15.0):
+        _DTN_REGISTRY[id(self)] = {
+            "node_id": node_id,
+            "max_buffer_size": max(1, max_buffer_size),
+            "link_timeout": float(link_timeout),
+            "outbound_queue": [],
+            "link_status": "ONLINE",
+            "last_heartbeat": time.time()
+        }
+
+    def __setattr__(self, key, value):
+        raise AttributeError("Direct attribute modification is strictly prohibited.")
+
+    @property
+    def link_status(self) -> str:
+        state = _DTN_REGISTRY.get(id(self))
+        return state["link_status"] if state else "OFFLINE"
+
+    @property
+    def queue_size(self) -> int:
+        state = _DTN_REGISTRY.get(id(self))
+        return len(state["outbound_queue"]) if state else 0
+
+    def update_link_status(self, is_connected: bool, current_snr: float) -> None:
+        state = _DTN_REGISTRY.get(id(self))
+        if not state:
+            return
+        if is_connected and current_snr >= 2.5:
+            state["link_status"] = "ONLINE"
+            state["last_heartbeat"] = time.time()
+        else:
+            if time.time() - state["last_heartbeat"] > state["link_timeout"]:
+                state["link_status"] = "DEGRADED_OFFLINE"
+            else:
+                state["link_status"] = "INTERMITTENT_BUFFERING"
+
+    def store_and_forward_packet(self, payload: dict, destination_node: str, session_key: bytes) -> bool:
+        state = _DTN_REGISTRY.get(id(self))
+        if not state:
+            return False
+        queue = state["outbound_queue"]
+        if len(queue) >= state["max_buffer_size"]:
+            return False
+
+        payload_bytes = str(payload).encode('utf-8')
+        signature = hmac.new(session_key, payload_bytes, hashlib.sha256).digest()
+
+        packet = {
+            "destination": destination_node,
+            "payload": payload,
+            "signature": signature,
+            "timestamp": int(time.time()),
+            "attempts": 0
+        }
+        queue.append(packet)
+        return True
+
+    def flush_queue(self, session_key: bytes) -> List[Dict[str, Any]]:
+        state = _DTN_REGISTRY.get(id(self))
+        if not state or state["link_status"] != "ONLINE":
+            return []
+
+        queue = state["outbound_queue"]
+        transmitted_packets = []
+        remaining_queue = []
+
+        for packet in queue:
+            payload_bytes = str(packet["payload"]).encode('utf-8')
+            expected_sig = hmac.new(session_key, payload_bytes, hashlib.sha256).digest()
+
+            if hmac.compare_digest(expected_sig, packet["signature"]):
+                packet["attempts"] += 1
+                transmitted_packets.append(packet)
+            else:
+                continue
+
+        state["outbound_queue"] = remaining_queue
+        return transmitted_packets
+
 
