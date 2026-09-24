@@ -1,5 +1,5 @@
 """
-Layer 1: Channel Authentication & Cryptographic Transport (Dr. Hikmat Hardened Pattern)
+Layer 1: Channel Authentication & Cryptographic Transport (Dr. Hikmat Hardened Pattern - v3)
 Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
 """
 import hmac
@@ -13,11 +13,12 @@ class SecureRegistrySet(set):
     def pop(self):
         raise PermissionError("Direct popping from protected registry set is strictly prohibited.")
 
-_CHANNEL_REGISTRY = {}
+# التخزين على مستوى الوحدة المفهرس بـ id(instance) لمنع التجاوز عبر __dict__
+_CHANNEL_DATA = {}
 
 class SovereignChannelEngine:
     def __init__(self, node_id: str, master_secret: bytes):
-        _CHANNEL_REGISTRY[id(self)] = {
+        _CHANNEL_DATA[id(self)] = {
             "node_id": node_id,
             "master_secret": bytearray(master_secret),
             "seen_nonces": SecureRegistrySet(),
@@ -30,7 +31,7 @@ class SovereignChannelEngine:
 
     def create_handshake(self) -> tuple:
         """إنشاء تحديث وتوقيع للمصافحة."""
-        state = _CHANNEL_REGISTRY.get(id(self))
+        state = _CHANNEL_DATA.get(id(self))
         if not state:
             return b"", b""
         nonce = os.urandom(16)
@@ -43,7 +44,7 @@ class SovereignChannelEngine:
 
     def authenticate_handshake(self, incoming_nonce: bytes, incoming_signature: bytes) -> bool:
         """التحقق من صحة المصافحة ومنع هجمات إعادة التشغيل."""
-        state = _CHANNEL_REGISTRY.get(id(self))
+        state = _CHANNEL_DATA.get(id(self))
         if not state:
             return False
             
@@ -63,5 +64,5 @@ class SovereignChannelEngine:
 
     @property
     def session_active(self) -> bool:
-        state = _CHANNEL_REGISTRY.get(id(self))
+        state = _CHANNEL_DATA.get(id(self))
         return state["session_active"] if state else False
