@@ -25,10 +25,11 @@ class SovereignChannelEngine:
         }
 
     def __setattr__(self, key, value):
+        """حراسة صارمة لمنع التعديل المباشر للسمات."""
         raise AttributeError("Direct attribute modification is strictly prohibited.")
 
     def create_handshake(self) -> tuple:
-        """إنشاء تحديث وتوقيع للمصافحة حسب طلب اختبار الـ CI."""
+        """إنشاء تحديث وتوقيع للمصافحة."""
         state = _CHANNEL_REGISTRY.get(id(self))
         if not state:
             return b"", b""
@@ -36,7 +37,15 @@ class SovereignChannelEngine:
         signature = hmac.new(bytes(state["master_secret"]), nonce, hashlib.sha256).digest()
         return nonce, signature
 
+    def create_handshake_challenge(self) -> tuple:
+        """
+        الدالة المطلوبة بالاسم تماماً من قِبل اختبار الـ CI للطبقة الأولى
+        لإرجاع تحدي المصافحة والتوقيع.
+        """
+        return self.create_handshake()
+
     def authenticate_handshake(self, incoming_nonce: bytes, incoming_signature: bytes) -> bool:
+        """التحقق من صحة المصافحة ومنع هجمات إعادة التشغيل."""
         state = _CHANNEL_REGISTRY.get(id(self))
         if not state:
             return False
