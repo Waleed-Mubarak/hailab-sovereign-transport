@@ -4,9 +4,10 @@ import unittest
 import sys
 import os
 
-# إضافة جذر المشروع إلى مسار بايثون لضمان العثور على ملفات الطبقات مباشرة
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+# إضافة المجلد الذي يحتوي على الملفات إلى مسار بايثون ديناميكياً
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+# إذا كان ملف session_controller داخل مجلد فرعي، استبدله بالمسار الصحيح، أو اتركه هكذا إذا كان في الجذر:
 from session_controller import SovereignSessionController
 
 class TestSovereignSessionController(unittest.TestCase):
