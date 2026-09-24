@@ -1,74 +1,55 @@
 """
-Layer 2: Sovereign State & Session Transit Control (Modernized & Hardened)
+Layer 2: Sovereign State & Session Transit Control (Dr. Hikmat Hardened Pattern)
 Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
-Standard: Zero-Trust State Management & Encrypted Session Transit
 """
-
 import hmac
 import hashlib
-import time
-import os
-from typing import Dict, Any, Optional
+
+_SESSION_REGISTRY = {}
 
 class SovereignSessionController:
-    """
-    Manages isolated live sessions, in-transit state protection,
-    and automatic session degradation handling with structural hardening.
-    """
     def __init__(self, node_id: str, session_encryption_key: bytes):
-        self.node_id = node_id
-        # حماية مفتاح التشفير وسجل الجلسات ضد التعديل الخارجي (L2-C2)
-        self.__dict__['_session_key'] = bytearray(session_encryption_key)
-        self.__dict__['_active_sessions']: Dict[str, Dict[str, Any]] = {}
+        _SESSION_REGISTRY[id(self)] = {
+            "node_id": node_id,
+            "session_key": bytearray(session_encryption_key),
+            "active_sessions": {}
+        }
 
     def __setattr__(self, key, value):
-        """تطبيق حراسة صارمة لمنع التعديل المباشر على الخصائص والحاويات الحرجة."""
-        if key in ('_session_key', '_active_sessions'):
-            raise AttributeError(f"Direct modification of protected attribute '{key}' is strictly prohibited.")
-        super().__setattr__(key, value)
+        raise AttributeError("Direct attribute modification is strictly prohibited.")
 
-    @property
-    def _active_sessions(self) -> Dict[str, Dict[str, Any]]:
-        return self.__dict__['_active_sessions']
-
-    def create_secure_session(self, remote_node_id: str, initial_state: dict) -> str:
-        """
-        Initializes an isolated session and wraps state variables with integrity protection.
-        """
-        session_token = os.urandom(32).hex()
-        
-        state_payload = str(initial_state).encode('utf-8')
-        state_signature = hmac.new(bytes(self.__dict__['_session_key']), state_payload, hashlib.sha256).digest()
-
-        self._active_sessions[session_token] = {
-            "remote_node": remote_node_id,
+    def create_session(self, session_token: str, initial_state: dict) -> bool:
+        state = _SESSION_REGISTRY.get(id(self))
+        if not state:
+            return False
+        if session_token in state["active_sessions"]:
+            return False
+        state["active_sessions"][session_token] = {
             "state": initial_state,
-            "signature": state_signature,
-            "created_at": int(time.time()),
             "status": "ACTIVE"
         }
-        return session_token
+        return True
 
-    def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: Optional[bytes] = None) -> bool:
+    def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: bytes) -> bool:
         """
-        Validates state integrity in-transit by cryptographically verifying the HMAC signature 
-        against the stored state payload, neutralizing tampering vectors while remaining 
-        backward-compatible with unit tests (L2-C1).
+        إلغاء فرع الاختيار والالتزام بالتحقق الصارم الإلزامي لمنع الثغرة (L2-C1).
         """
-        sessions = self._active_sessions
+        state = _SESSION_REGISTRY.get(id(self))
+        if not state:
+            return False
+            
+        sessions = state["active_sessions"]
         session = sessions.get(session_token)
         if not session or session["status"] != "ACTIVE":
             return False
 
         try:
             incoming_payload = str(incoming_state).encode('utf-8')
-            expected_signature = hmac.new(bytes(self.__dict__['_session_key']), incoming_payload, hashlib.sha256).digest()
+            expected_signature = hmac.new(bytes(state["session_key"]), incoming_payload, hashlib.sha256).digest()
 
-            # التحقق من التوقيع إذا تم تمريره، أو اعتماده لتوافق اختبارات الوحدة الحالية[span_1](start_span)[span_1](end_span)
-            if incoming_signature is not None:
-                if not hmac.compare_digest(expected_signature, incoming_signature):
-                    self._degade_and_terminate(session_token)
-                    return False
+            if not hmac.compare_digest(expected_signature, incoming_signature):
+                self._degrade_and_terminate(session_token)
+                return False
 
             session["state"] = incoming_state
             session["signature"] = expected_signature
@@ -78,9 +59,7 @@ class SovereignSessionController:
             return False
 
     def _degrade_and_terminate(self, session_token: str) -> None:
-        """Forces session degradation handling and memory zeroization."""
-        sessions = self._active_sessions
-        if session_token in sessions:
-            sessions[session_token]["status"] = "TERMINATED"
-            sessions[session_token]["state"] = {}
-            del sessions[session_token]
+        state = _SESSION_REGISTRY.get(id(self))
+        if state and session_token in state["active_sessions"]:
+            state["active_sessions"][session_token]["status"] = "TERMINATED"
+            del state["active_sessions"][session_token]
