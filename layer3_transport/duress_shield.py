@@ -39,18 +39,19 @@ class SovereignDuressShield:
 
         return not state["system_compromised"]
 
-    def check_duress_trigger(self, duress_code: bytes) -> bool:
-        """
-        الدالة المطلوبة بالاسم تماماً من قِبل اختبار الـ CI للتحقق من كود الإكراه.
-        """
+    def check_duress_trigger(self, duress_code) -> bool:
+        """التحقق من كود الإكراه مع دعم النص والبايتات لتجنب الأخطاء."""
         state = _DURESS_REGISTRY.get(id(self))
         if not state:
             return False
 
+        if isinstance(duress_code, str):
+            duress_code = duress_code.encode('utf-8')
+
         code_hash = hashlib.sha256(duress_code).digest()
         if hmac.compare_digest(code_hash, state["duress_hash"]):
             state["system_compromised"] = True
-            state["duress_hash"] = bytearray(32) # تصفير فوري
+            state["duress_hash"] = bytearray(32)
             return True
         return False
 
