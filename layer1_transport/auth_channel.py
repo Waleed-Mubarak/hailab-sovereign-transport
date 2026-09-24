@@ -38,10 +38,7 @@ class SovereignChannelEngine:
         return nonce, signature
 
     def create_handshake_challenge(self) -> tuple:
-        """
-        الدالة المطلوبة بالاسم تماماً من قِبل اختبار الـ CI للطبقة الأولى
-        لإرجاع تحدي المصافحة والتوقيع.
-        """
+        """الدالة المطلوبة بالاسم تماماً من قِبل اختبار الـ CI للطبقة الأولى."""
         return self.create_handshake()
 
     def authenticate_handshake(self, incoming_nonce: bytes, incoming_signature: bytes) -> bool:
@@ -59,6 +56,10 @@ class SovereignChannelEngine:
             state["session_active"] = True
             return True
         return False
+
+    def verify_and_establish(self, incoming_nonce: bytes, incoming_signature: bytes) -> bool:
+        """الدالة المطلوبة بالاسم في الـ CI للتحقق والاعتماد."""
+        return self.authenticate_handshake(incoming_nonce, incoming_signature)
 
     @property
     def session_active(self) -> bool:
