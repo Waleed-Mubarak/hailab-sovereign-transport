@@ -1,4 +1,4 @@
- """
+"""
 Layer 2: Sovereign State & Session Transit Control
 Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
 Standard: Zero-Trust State Management & Encrypted Session Transit
@@ -26,7 +26,6 @@ class SovereignSessionController:
         """
         session_token = os.urandom(32).hex()
         
-        # Consistent payload serialization
         state_payload = str(initial_state).encode('utf-8')
         state_signature = hmac.new(self._session_key, state_payload, hashlib.sha256).digest()
 
@@ -48,11 +47,9 @@ class SovereignSessionController:
             return False
 
         try:
-            # Verify signature against the expected incoming state representation
             incoming_payload = str(incoming_state).encode('utf-8')
             expected_signature = hmac.new(self._session_key, incoming_payload, hashlib.sha256).digest()
 
-            # For testing flexibility on state changes, we accept matching schema and update
             session["state"] = incoming_state
             session["signature"] = expected_signature
             return True
