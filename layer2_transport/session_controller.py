@@ -17,7 +17,7 @@ class SovereignSessionController:
     """
     def __init__(self, node_id: str, session_encryption_key: bytes):
         self.node_id = node_id
-        self._session_key = session_encryption_key
+        self._session_key = bytes(session_encryption_key)
         self._active_sessions: Dict[str, Dict[str, Any]] = {}
 
     def create_secure_session(self, remote_node_id: str, initial_state: dict) -> str:
@@ -25,17 +25,16 @@ class SovereignSessionController:
         Initializes an isolated session and wraps state variables with integrity protection.
         """
         session_token = os.urandom(32).hex()
-        timestamp = int(time.time())
         
-        # Protect state integrity via HMAC
-        state_payload = str(initial_state).encode('utf-8')
+        # Protect state integrity via HMAC using sorted/consistent representation
+        state_payload = repr(sorted(initial_state.items())).encode('utf-8')
         state_signature = hmac.new(self._session_key, state_payload, hashlib.sha256).digest()
 
         self._active_sessions[session_token] = {
             "remote_node": remote_node_id,
             "state": initial_state,
             "signature": state_signature,
-            "created_at": timestamp,
+            "created_at": int(time.time()),
             "status": "ACTIVE"
         }
         return session_token
@@ -50,16 +49,17 @@ class SovereignSessionController:
             return False
 
         try:
-            # Verify state integrity
-            incoming_payload = str(incoming_state).encode('utf-8')
+            # Verify state integrity with matching payload representation
+            incoming_payload = repr(sorted(incoming_state.items())).encode('utf-8')
             expected_signature = hmac.new(self._session_key, incoming_payload, hashlib.sha256).digest()
 
             if not hmac.compare_digest(expected_signature, session["signature"]):
                 self._degrade_and_terminate(session_token)
                 return False
 
-            # Update valid state
+            # Update valid state and refresh signature
             session["state"] = incoming_state
+            session["signature"] = expected_signature
             return True
         except Exception:
             self._degrade_and_terminate(session_token)
@@ -71,6 +71,3 @@ class SovereignSessionController:
             self._active_sessions[session_token]["status"] = "TERMINATED"
             self._active_sessions[session_token]["state"] = {}
             del self._active_sessions[session_token]
-        
-        if self._session_key:
-            self._session_key = b'\x00' * len(self._session_key)
