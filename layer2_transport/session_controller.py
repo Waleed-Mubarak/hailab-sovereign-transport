@@ -17,25 +17,27 @@ class SovereignSessionController:
         }
 
     def __setattr__(self, key, value):
+        """حراسة صارمة لمنع التعديل المباشر للسمات."""
         raise AttributeError("Direct attribute modification is strictly prohibited.")
 
-    def create_secure_session(self, node_id: str) -> str:
-        """إنشاء جلسة آمنة حسب طلب اختبار الـ CI."""
+    def create_secure_session(self, node_id: str, initial_state: dict = None) -> str:
+        """
+        إنشاء جلسة آمنة مع دعم استقبال الحالة الأولية 
+        لتتوافق مع المعاملات التي يمررها اختبار الـ CI.
+        """
         state = _SESSION_REGISTRY.get(id(self))
         if not state:
             return ""
         token = str(uuid.uuid4())
         state["active_sessions"][token] = {
             "node_id": node_id,
-            "state": {},
+            "state": initial_state or {},
             "status": "ACTIVE"
         }
         return token
 
     def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: bytes) -> bool:
-        """
-        إلغاء فرع الاختيار والالتزام بالتحقق الصارم الإلزامي لمنع الثغرة (L2-C1).
-        """
+        """التحقق وتحديث الحالة بشكل صارم وإلزامي."""
         state = _SESSION_REGISTRY.get(id(self))
         if not state:
             return False
@@ -61,6 +63,7 @@ class SovereignSessionController:
             return False
 
     def _degrade_and_terminate(self, session_token: str) -> None:
+        """إنهاء وتلحيق الجلسة في حال اكتشاف أي تلاعب."""
         state = _SESSION_REGISTRY.get(id(self))
         if state and session_token in state["active_sessions"]:
             state["active_sessions"][session_token]["status"] = "TERMINATED"
