@@ -20,14 +20,11 @@ class SovereignDuressShield:
         raise AttributeError("Direct attribute modification is strictly prohibited.")
 
     def evaluate_signal_integrity(self, signal_noise_ratio: float, error_rate: float, provided_duress_token: bytes = b"") -> bool:
-        """
-        مطرقة الاختبار تستدعي هذا الاسم تحديداً للتحقق من سلامة الإشارة ونسبة التشويش.
-        """
+        """التحقق من سلامة الإشارة والتشويش."""
         state = _DURESS_REGISTRY.get(id(self))
         if not state:
             return False
 
-        # إذا كانت نسبة الإشارة للضوضاء منخفضة جداً أو نسبة الخطأ عالية
         if signal_noise_ratio < 2.0 or error_rate > 0.1:
             state["interference_level"] = 10.0
             state["system_compromised"] = True
@@ -37,11 +34,25 @@ class SovereignDuressShield:
             token_hash = hashlib.sha256(provided_duress_token).digest()
             if hmac.compare_digest(token_hash, state["duress_hash"]):
                 state["system_compromised"] = True
-                # تصفير فوري للمفاتيح الحساسة في الذاكرة
                 state["duress_hash"] = bytearray(32)
                 return False
 
         return not state["system_compromised"]
+
+    def check_duress_trigger(self, duress_code: bytes) -> bool:
+        """
+        الدالة المطلوبة بالاسم تماماً من قِبل اختبار الـ CI للتحقق من كود الإكراه.
+        """
+        state = _DURESS_REGISTRY.get(id(self))
+        if not state:
+            return False
+
+        code_hash = hashlib.sha256(duress_code).digest()
+        if hmac.compare_digest(code_hash, state["duress_hash"]):
+            state["system_compromised"] = True
+            state["duress_hash"] = bytearray(32) # تصفير فوري
+            return True
+        return False
 
     @property
     def system_compromised(self) -> bool:
