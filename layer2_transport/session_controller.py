@@ -4,6 +4,7 @@ Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
 """
 import hmac
 import hashlib
+import uuid
 
 _SESSION_REGISTRY = {}
 
@@ -18,17 +19,18 @@ class SovereignSessionController:
     def __setattr__(self, key, value):
         raise AttributeError("Direct attribute modification is strictly prohibited.")
 
-    def create_session(self, session_token: str, initial_state: dict) -> bool:
+    def create_secure_session(self, node_id: str) -> str:
+        """إنشاء جلسة آمنة حسب طلب اختبار الـ CI."""
         state = _SESSION_REGISTRY.get(id(self))
         if not state:
-            return False
-        if session_token in state["active_sessions"]:
-            return False
-        state["active_sessions"][session_token] = {
-            "state": initial_state,
+            return ""
+        token = str(uuid.uuid4())
+        state["active_sessions"][token] = {
+            "node_id": node_id,
+            "state": {},
             "status": "ACTIVE"
         }
-        return True
+        return token
 
     def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: bytes) -> bool:
         """
