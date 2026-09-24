@@ -8,8 +8,9 @@ import hmac
 _DURESS_REGISTRY = {}
 
 class SovereignDuressShield:
-    def __init__(self, duress_secret: bytes):
+    def __init__(self, node_id: str, duress_secret: bytes):
         _DURESS_REGISTRY[id(self)] = {
+            "node_id": node_id,
             "duress_hash": hashlib.sha256(duress_secret).digest(),
             "system_compromised": False,
             "interference_level": 0.0
