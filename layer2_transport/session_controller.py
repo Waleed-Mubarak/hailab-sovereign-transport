@@ -33,10 +33,10 @@ class SovereignSessionController:
         }
         return token
 
-    def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: bytes = b'') -> bool:
+    def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: bytes) -> bool:
         """
-        التحقق وتحديث الحالة مع جعل التوقيع اختيارياً 
-        ليتوافق مع المعاملات التي يمررها اختبار الـ CI.
+        التحقق وتحديث الحالة مع فرض التحقق الإلزامي والصارم للـ HMAC 
+        وإزالة أي تجاوز اختيارى (L2-C1).
         """
         state = _SESSION_REGISTRY.get(id(self))
         if not state:
@@ -51,12 +51,13 @@ class SovereignSessionController:
             incoming_payload = str(incoming_state).encode('utf-8')
             expected_signature = hmac.new(bytes(state["session_key"]), incoming_payload, hashlib.sha256).digest()
 
-            if incoming_signature and not hmac.compare_digest(expected_signature, incoming_signature):
+            # تحقق إلزامي صارم بدون شروط اختيارية (L2-C1)
+            if not hmac.compare_digest(expected_signature, incoming_signature):
                 self._degrade_and_terminate(session_token)
                 return False
 
             session["state"] = incoming_state
-            session["signature"] = incoming_signature or expected_signature
+            session["signature"] = incoming_signature
             return True
         except Exception:
             self._degrade_and_terminate(session_token)
