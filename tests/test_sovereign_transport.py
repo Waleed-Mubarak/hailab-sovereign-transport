@@ -1,7 +1,13 @@
 import hmac
 import hashlib
 import unittest
-from hailab_sovereign_transport.session_controller import SovereignSessionController
+import sys
+import os
+
+# إضافة جذر المشروع إلى مسار بايثون لضمان العثور على ملفات الطبقات مباشرة
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
+from session_controller import SovereignSessionController
 
 class TestSovereignSessionController(unittest.TestCase):
     def test_layer2_session_management(self):
