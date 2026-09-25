@@ -3,12 +3,13 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع مصادقة بيانات التعريف وفحص الإكراه."""
+    """محاكي نقل DTN للطبقة الخامسة مع إدارة حالة الاتصال ومتطلبات L5-C3."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
             "node_id": node_id,
-            "master_secret": master_secret or b"default_master_secret_32bytes_len!!"
+            "master_secret": master_secret or b"default_master_secret_32bytes_len!!",
+            "link_status": "ONLINE"
         }
 
         def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None) -> dict:
@@ -45,7 +46,6 @@ class SovereignDTNTransportSimulator:
             return True
 
         def check_duress_trigger(secret_pass, correct_hash) -> bool:
-            """فحص إكراه الرمز أو كلمة المرور باستخدام المقارنة الآمنة."""
             if isinstance(secret_pass, str):
                 secret_bytes = secret_pass.encode()
             elif isinstance(secret_pass, bytes):
@@ -64,8 +64,13 @@ class SovereignDTNTransportSimulator:
         self._engine = {
             "create_bundle": create_bundle,
             "verify_and_route_bundle": verify_and_route_bundle,
-            "check_duress_trigger": check_duress_trigger
+            "check_duress_trigger": check_duress_trigger,
+            "get_link_status": lambda: _state["link_status"]
         }
+
+    @property
+    def link_status(self):
+        return self._engine["get_link_status"]()
 
     def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None):
         return self._engine["create_bundle"](bundle_id, destination, payload, protection_fields)
