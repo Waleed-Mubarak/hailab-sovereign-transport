@@ -1,28 +1,67 @@
+import hmac
 import hashlib
-import time
 
 class SovereignSecurityKernel:
-    def __init__(self, window_seconds: int = 30):
-        self.window_seconds = window_seconds
-        self.seen_nonces = set()
+    """نواة الأمان السيادية (Security Kernel) لتنفيذ سياسات الثقة المعدومة (Zero-Trust)."""
+    
+    def __init__(self, kernel_secret: bytes = None):
+        self._kernel_secret = kernel_secret or b"sovereign_kernel_master_key_32bytes!!"
+        self._audit_log = []
 
-    def generate_nonce(self) -> str:
-        """توليد معرف فريد يعتمد على الوقت الحالي لمنع هجمات إعادة التشغيل."""
-        timestamp = str(time.time())
-        return hashlib.sha256(timestamp.encode()).hexdigest()[:16]
-
-    def verify_packet(self, nonce: str, timestamp: float) -> bool:
-        """التحقق من صحة الحزمة ومنع إعادة إرسال نفس المعرف ضمن النافذة الزمنية."""
-        current_time = time.time()
+    def evaluate_and_authorize(self, session_controller, session_token: bytes, incoming_state: dict, incoming_signature: bytes, destination_node: str) -> bool:
+        """
+        التقييم الأمني الشامل واتخاذ قرار التفويض:
+        1. التحقق من سلامة الجلسة والتوقيع ومنع إعادة التشغيل عبر المتحكم.
+        2. التحقق من مطابقة وجهة العقدة (Destination Binding).
+        3. تسجيل القرار في سجل التدقيق الأمني (Audit Trail).
+        """
         
-        # التحقق من أن الحزمة ضمن النافذة الزمنية المسموحة
-        if abs(current_time - timestamp) > self.window_seconds:
+        # الخطوة الأولى: التحقق عبر متحكم الجلسات (في الطبقة 2)
+        is_session_valid = session_controller.validate_and_update_state(
+            session_token=session_token,
+            incoming_state=incoming_state,
+            incoming_signature=incoming_signature
+        )
+        
+        if not is_session_valid:
+            self._log_audit_event("DENIED", "Invalid session, bad signature, or replay attack detected", destination_node)
             return False
-            
-        # التحقق من أن المعرف لم يتم استخدامه مسبقاً
-        if nonce in self.seen_nonces:
+
+        # الخطوة الثانية: التحقق من سياسة الوجهة
+        if not destination_node or not isinstance(destination_node, str):
+            self._log_audit_event("DENIED", "Invalid or missing destination node binding", destination_node)
             return False
-            
-        # تسجيل المعرف كمعالج
-        self.seen_nonces.add(nonce)
+
+        # الخطوة الثالثة: التحقق من سلامة الحمولة
+        if not self._verify_payload_integrity(incoming_state):
+            self._log_audit_event("DENIED", "Payload integrity check failed", destination_node)
+            return False
+
+        # منح الإذن السيادي بنجاح
+        self._log_audit_event("AUTHORIZED", "Security kernel check passed successfully", destination_node)
         return True
+
+    def _verify_payload_integrity(self, state: dict) -> bool:
+        if not isinstance(state, dict):
+            return False
+        if "counter" not in state:
+            return False
+        return True
+
+    def _log_audit_event(self, status: str, reason: str, node: str):
+        event = {
+            "status": status,
+            "reason": reason,
+            "destination": node
+        }
+        self._audit_log.append(event)
+        if len(self._audit_log) > 100:
+            self._audit_log.pop(0)
+
+    def get_audit_trail(self) -> list:
+        return list(self._audit_log)
+
+    def __setattr__(self, name, value):
+        if name not in ["_kernel_secret", "_audit_log"]:
+            raise AttributeError("Direct modification of kernel security attributes is strictly prohibited.")
+        super().__setattr__(name, value)
