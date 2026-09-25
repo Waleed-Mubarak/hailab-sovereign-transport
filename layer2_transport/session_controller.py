@@ -3,8 +3,12 @@ import hashlib
 
 class SovereignSessionController:
     """إدارة الجلسات للطبقة الثانية بالنمط المحصّن والنطاق المغلق."""
-    def __init__(self):
+    def __init__(self, node_id: str = None, session_encryption_key: bytes = None):
         _sessions = {}
+        _state = {
+            "node_id": node_id,
+            "session_encryption_key": session_encryption_key
+        }
 
         def create_session(session_id: str, secret_key: bytes) -> bool:
             if session_id in _sessions:
@@ -18,7 +22,8 @@ class SovereignSessionController:
         def validate_session_token(session_id: str, token: bytes) -> bool:
             if session_id not in _sessions or not _sessions[session_id]["active"]:
                 return False
-            expected_token = hmac.new(_sessions[session_id]["secret_key"], session_id.encode(), hashlib.sha256).digest()
+            key = _state["session_encryption_key"] or _sessions[session_id]["secret_key"]
+            expected_token = hmac.new(key, session_id.encode(), hashlib.sha256).digest()
             return hmac.compare_digest(expected_token, token)
 
         def terminate_session(session_id: str) -> bool:
