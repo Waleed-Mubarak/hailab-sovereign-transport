@@ -2,8 +2,8 @@ import hmac
 import hashlib
 import json
 
-class SecureDTNBundleManager:
-    """إدارة حزم DTN للطبقة الخامسة مع مصادقة بيانات التعريف (Metadata HMAC)."""
+class SovereignDTNTransportSimulator:
+    """محاكي نقل DTN للطبقة الخامسة مع مصادقة بيانات التعريف (Metadata HMAC) لتلبية متطلبات L5-C3."""
     def __init__(self, master_secret: bytes = None):
         _bundles = {}
         _state = {
@@ -11,14 +11,12 @@ class SecureDTNBundleManager:
         }
 
         def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None) -> dict:
-            """إنشاء حزمة DTN وتوليد HMAC يغطي بيانات التعريف والحمولة معاً."""
             metadata = {
                 "bundle_id": bundle_id,
                 "destination": destination,
                 "protection_fields": protection_fields or {}
             }
-            
-            # الدمج لتغطية بيانات التعريف والأهمية الأمنية بالكامل
+            # تغطية بيانات التعريف والحمولة بالكامل عبر الـ HMAC
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
@@ -31,7 +29,7 @@ class SecureDTNBundleManager:
             return bundle
 
         def verify_and_route_bundle(bundle: dict) -> bool:
-            """التحقق العدائي: رفض الحزمة إذا تم تعديل الوجهة أو بيانات التعريف دون مطابقة الـ HMAC."""
+            """التحقق العدائي: رفض الحزمة حال تم تعديل الوجهة أو البيانات دون مطابقة الـ HMAC."""
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
                 
@@ -39,13 +37,10 @@ class SecureDTNBundleManager:
             payload = bundle.get("payload", {})
             provided_hmac = bundle.get("hmac")
             
-            # إعادة حساب الـ HMAC باستخدام بيانات التعريف الحالية والحمولة
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
-            # استخدام المقارنة الآمنة ضد توقيت الهجمات
             if not hmac.compare_digest(expected_hmac, provided_hmac):
-                # اشتراط الرفض قبل إعادة التوجيه
                 return False
                 
             return True
