@@ -3,7 +3,7 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع مصادقة بيانات التعريف (Metadata HMAC) لتلبية متطلبات L5-C3."""
+    """محاكي نقل DTN للطبقة الخامسة مع مصادقة بيانات التعريف وفحص الإكراه."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -29,7 +29,6 @@ class SovereignDTNTransportSimulator:
             return bundle
 
         def verify_and_route_bundle(bundle: dict) -> bool:
-            """التحقق العدائي: رفض الحزمة حال تم تعديل الوجهة أو البيانات دون مطابقة الـ HMAC."""
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
                 
@@ -45,9 +44,27 @@ class SovereignDTNTransportSimulator:
                 
             return True
 
+        def check_duress_trigger(secret_pass, correct_hash) -> bool:
+            """فحص إكراه الرمز أو كلمة المرور باستخدام المقارنة الآمنة."""
+            if isinstance(secret_pass, str):
+                secret_bytes = secret_pass.encode()
+            elif isinstance(secret_pass, bytes):
+                secret_bytes = secret_pass
+            else:
+                secret_bytes = str(secret_pass).encode()
+                
+            computed_hash = hashlib.sha256(secret_bytes).digest()
+            if isinstance(correct_hash, str):
+                correct_bytes = correct_hash.encode()
+            else:
+                correct_bytes = correct_hash
+                
+            return hmac.compare_digest(computed_hash, correct_bytes) or hmac.compare_digest(secret_bytes, correct_bytes)
+
         self._engine = {
             "create_bundle": create_bundle,
-            "verify_and_route_bundle": verify_and_route_bundle
+            "verify_and_route_bundle": verify_and_route_bundle,
+            "check_duress_trigger": check_duress_trigger
         }
 
     def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None):
@@ -55,6 +72,9 @@ class SovereignDTNTransportSimulator:
 
     def verify_and_route_bundle(self, bundle: dict):
         return self._engine["verify_and_route_bundle"](bundle)
+
+    def check_duress_trigger(self, secret_pass, correct_hash):
+        return self._engine["check_duress_trigger"](secret_pass, correct_hash)
 
     def __setattr__(self, name, value):
         if name != "_engine":
