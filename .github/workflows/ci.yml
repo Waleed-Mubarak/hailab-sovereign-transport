@@ -19,6 +19,13 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Run Unit & Integration Tests
+      - name: Install Package
         run: |
-          PYTHONPATH=. python -m unittest discover -s tests -p "test_*.py"
+          python -m pip install --upgrade pip
+          pip install -e .
+
+      - name: Run Unit & Integration Tests
+        env:
+          PYTHONPATH: .
+        run: |
+          python -m unittest discover -s tests -p "test_*.py"
