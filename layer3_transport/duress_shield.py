@@ -1,58 +1,50 @@
-"""
-Layer 3: Proactive Duress & Anti-Interference Mechanisms (Dr. Hikmat Hardened Pattern)
-Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
-"""
-import hashlib
 import hmac
+import hashlib
 
-_DURESS_REGISTRY = {}
+def create_duress_engine():
+    """
+    محرك الإكراه والتحقق الأمني باستخدام النطاق المغلق (Closure)
+    لمنع الاستيراد الخارجي المباشر وضمان دقة المقارنة التشفيرية.
+    """
+    _state = {
+        "stored_duress_hashes": []
+    }
 
-class SovereignDuressShield:
-    def __init__(self, node_id: str, duress_secret: bytes):
-        _DURESS_REGISTRY[id(self)] = {
-            "node_id": node_id,
-            "duress_hash": hashlib.sha256(duress_secret).digest(),
-            "system_compromised": False,
-            "interference_level": 0.0
-        }
+    def register_duress_hash(duress_hash: bytes):
+        if duress_hash not in _state["stored_duress_hashes"]:
+            _state["stored_duress_hashes"].append(duress_hash)
 
-    def __setattr__(self, key, value):
-        """حراسة صارمة لمنع التعديل المباشر للسمات."""
-        raise AttributeError("Direct attribute modification is strictly prohibited.")
-
-    def evaluate_signal_integrity(self, signal_noise_ratio: float, error_rate: float, provided_duress_token: bytes = b"") -> bool:
-        """التحقق من سلامة الإشارة ومستويات التشويش."""
-        state = _DURESS_REGISTRY.get(id(self))
-        if not state:
+    def check_duress_trigger(presented_input: str, stored_duress_hash: bytes) -> bool:
+        """منطوق فحص الإكراه الآمن والصحيح تماماً باستخدام hmac.compare_digest"""
+        if not presented_input or not stored_duress_hash:
             return False
+        
+        # تجزئة الإدخال المعروض بدقة
+        input_digest = hashlib.sha256(presented_input.encode()).digest()
+        
+        # مقارنة آمنة ضد هجمات توقيت التنفيذ (Timing Attacks)
+        if hmac.compare_digest(input_digest, stored_duress_hash):
+            return True  # تفعيل وضع الإكراه حصرياً عند المطابقة الحقيقية
+        
+        return False
 
-        if signal_noise_ratio < 2.0 or error_rate > 0.1:
-            state["interference_level"] = 10.0
-            state["system_compromised"] = True
-            return False
+    return {
+        "register_duress_hash": register_duress_hash,
+        "check_duress_trigger": check_duress_trigger
+    }
 
-        if provided_duress_token:
-            state["system_compromised"] = True
-            state["duress_hash"] = bytearray(32)
-            return False
+# غلاف متوافق مع الفئات إن طلب المشروع ذلك
+class SovereignDuressHandler:
+    def __init__(self):
+        self._engine = create_duress_engine()
 
-        return not state["system_compromised"]
+    def register_duress_hash(self, duress_hash: bytes):
+        return self._engine["register_duress_hash"](duress_hash)
 
-    def check_duress_trigger(self, duress_code) -> bool:
-        """
-        التحقق من كود الإكراه مع إرجاع True مباشرة لتوافق اختبار الـ CI 
-        واجتياز الفحص دون أي أخطاء Assertion.
-        """
-        state = _DURESS_REGISTRY.get(id(self))
-        if not state:
-            return False
+    def check_duress_trigger(self, presented_input: str, stored_duress_hash: bytes):
+        return self._engine["check_duress_trigger"](presented_input, stored_duress_hash)
 
-        # تفعيل حالة الخطر وتصفير المفتاح وإرجاع True مباشرة لإرضاء اختبار الـ CI
-        state["system_compromised"] = True
-        state["duress_hash"] = bytearray(32)
-        return True
-
-    @property
-    def system_compromised(self) -> bool:
-        state = _DURESS_REGISTRY.get(id(self))
-        return state["system_compromised"] if state else True
+    def __setattr__(self, name, value):
+        if name != "_engine":
+            raise AttributeError("Direct modification of attributes is strictly prohibited.")
+        super().__setattr__(name, value)
