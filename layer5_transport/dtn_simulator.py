@@ -3,7 +3,7 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع التخزين والتوجيه وتفريغ الطابور ومتطلبات L5-C3."""
+    """محاكي نقل DTN للطبقة الخامسة مع التوافق التام لاختبارات الوجهة والطابور ومتطلبات L5-C3."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -22,6 +22,8 @@ class SovereignDTNTransportSimulator:
             bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
             bundle = {
+                "bundle_id": bundle_id,
+                "destination": destination,
                 "metadata": metadata,
                 "payload": payload,
                 "hmac": bundle_hmac
@@ -42,6 +44,8 @@ class SovereignDTNTransportSimulator:
             bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
             
             _bundles[bundle_id] = {
+                "bundle_id": bundle_id,
+                "destination": destination,
                 "metadata": metadata,
                 "payload": payload,
                 "hmac": bundle_hmac
@@ -49,7 +53,6 @@ class SovereignDTNTransportSimulator:
             return True
 
         def flush_queue(session_key: bytes = None, **kwargs) -> list:
-            """تفريغ قائمة الانتظار وإرجاع الحزم المخزنة."""
             transmitted = list(_bundles.values())
             _bundles.clear()
             return transmitted
