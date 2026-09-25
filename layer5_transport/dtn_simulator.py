@@ -4,9 +4,10 @@ import json
 
 class SovereignDTNTransportSimulator:
     """محاكي نقل DTN للطبقة الخامسة مع مصادقة بيانات التعريف (Metadata HMAC) لتلبية متطلبات L5-C3."""
-    def __init__(self, master_secret: bytes = None):
+    def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
+            "node_id": node_id,
             "master_secret": master_secret or b"default_master_secret_32bytes_len!!"
         }
 
@@ -16,7 +17,6 @@ class SovereignDTNTransportSimulator:
                 "destination": destination,
                 "protection_fields": protection_fields or {}
             }
-            # تغطية بيانات التعريف والحمولة بالكامل عبر الـ HMAC
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
