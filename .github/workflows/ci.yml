@@ -19,11 +19,11 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install Package in Editable Mode
+      - name: Build and Test inside Project Directory
+        env:
+          PYTHONPATH: .
         run: |
+          cd hailab-sovereign-transport/hailab-sovereign-transport || cd .
           pip install --upgrade pip
           pip install -e .
-
-      - name: Run Unit & Integration Tests
-        run: |
           python -m unittest discover -s tests -p "test_*.py"
