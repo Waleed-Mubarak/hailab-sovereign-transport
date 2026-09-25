@@ -20,14 +20,10 @@ jobs:
           python-version: "3.10"
 
       - name: Install Package in Editable Mode
-        working-directory: ./hailab-sovereign-transport
         run: |
           pip install --upgrade pip
           pip install -e .
 
       - name: Run Unit & Integration Tests
-        working-directory: ./hailab-sovereign-transport
-        env:
-          PYTHONPATH: .
         run: |
           python -m unittest discover -s tests -p "test_*.py"
