@@ -1,71 +1,56 @@
-"""
-Layer 2: Sovereign State & Session Transit Control (Dr. Hikmat Hardened Pattern)
-Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
-"""
 import hmac
 import hashlib
-import uuid
 
-_SESSION_REGISTRY = {}
+def create_session_manager():
+    """
+    إدارة الجلسات باستخدام النطاق المغلق (Closure) 
+    لمنع الاستيراد المباشر والتلاعب بقواميس الجلسات العامة.
+    """
+    _sessions = {}
 
-class SovereignSessionController:
-    def __init__(self, node_id: str, session_encryption_key: bytes):
-        _SESSION_REGISTRY[id(self)] = {
-            "node_id": node_id,
-            "session_key": bytearray(session_encryption_key),
-            "active_sessions": {}
-        }
-
-    def __setattr__(self, key, value):
-        """حراسة صارمة لمنع التعديل المباشر للسمات."""
-        raise AttributeError("Direct attribute modification is strictly prohibited.")
-
-    def create_secure_session(self, node_id: str, initial_state: dict = None) -> str:
-        """إنشاء جلسة آمنة مع دعم استقبال الحالة الأولية."""
-        state = _SESSION_REGISTRY.get(id(self))
-        if not state:
-            return ""
-        token = str(uuid.uuid4())
-        state["active_sessions"][token] = {
-            "node_id": node_id,
-            "state": initial_state or {},
-            "status": "ACTIVE"
-        }
-        return token
-
-    def validate_and_update_state(self, session_token: str, incoming_state: dict, incoming_signature: bytes) -> bool:
-        """
-        التحقق وتحديث الحالة مع فرض التحقق الإلزامي والصارم للـ HMAC 
-        وإزالة أي تجاوز اختيارى (L2-C1).
-        """
-        state = _SESSION_REGISTRY.get(id(self))
-        if not state:
+    def create_session(session_id: str, secret_key: bytes) -> bool:
+        if session_id in _sessions:
             return False
-            
-        sessions = state["active_sessions"]
-        session = sessions.get(session_token)
-        if not session or session["status"] != "ACTIVE":
+        _sessions[session_id] = {
+            "secret_key": secret_key,
+            "active": True
+        }
+        return True
+
+    def validate_session_token(session_id: str, token: bytes) -> bool:
+        if session_id not in _sessions or not _sessions[session_id]["active"]:
             return False
+        
+        expected_token = hmac.new(_sessions[session_id]["secret_key"], session_id.encode(), hashlib.sha256).digest()
+        return hmac.compare_digest(expected_token, token)
 
-        try:
-            incoming_payload = str(incoming_state).encode('utf-8')
-            expected_signature = hmac.new(bytes(state["session_key"]), incoming_payload, hashlib.sha256).digest()
-
-            # تحقق إلزامي صارم بدون شروط اختيارية (L2-C1)
-            if not hmac.compare_digest(expected_signature, incoming_signature):
-                self._degrade_and_terminate(session_token)
-                return False
-
-            session["state"] = incoming_state
-            session["signature"] = incoming_signature
+    def terminate_session(session_id: str) -> bool:
+        if session_id in _sessions:
+            _sessions[session_id]["active"] = False
             return True
-        except Exception:
-            self._degrade_and_terminate(session_token)
-            return False
+        return False
 
-    def _degrade_and_terminate(self, session_token: str) -> None:
-        """إنهاء الجلسة عند رصد أي تلاعب."""
-        state = _SESSION_REGISTRY.get(id(self))
-        if state and session_token in state["active_sessions"]:
-            state["active_sessions"][session_token]["status"] = "TERMINATED"
-            del state["active_sessions"][session_token]
+    return {
+        "create_session": create_session,
+        "validate_session_token": validate_session_token,
+        "terminate_session": terminate_session
+    }
+
+# غلاف متوافق مع الفئات إن وجد
+class SovereignSessionManager:
+    def __init__(self):
+        self._engine = create_session_manager()
+
+    def create_session(self, session_id: str, secret_key: bytes):
+        return self._engine["create_session"](session_id, secret_key)
+
+    def validate_session_token(self, session_id: str, token: bytes):
+        return self._engine["validate_session_token"](session_id, token)
+
+    def terminate_session(self, session_id: str):
+        return self._engine["terminate_session"](session_id)
+
+    def __setattr__(self, name, value):
+        if name != "_engine":
+            raise AttributeError("Direct modification of attributes is strictly prohibited.")
+        super().__setattr__(name, value)
