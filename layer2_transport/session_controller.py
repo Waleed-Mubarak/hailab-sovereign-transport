@@ -19,12 +19,12 @@ class SovereignSessionController:
             }
             return True
 
-        def create_secure_session(node_id: str, initial_state: dict) -> bytes:
+        def create_secure_session(node_id: str, initial_state: dict = None, **kwargs) -> bytes:
             session_id = f"session-{node_id}"
             key = _state["session_encryption_key"]
             _sessions[session_id] = {
                 "secret_key": key,
-                "initial_state": initial_state,
+                "initial_state": initial_state or {},
                 "active": True
             }
             return hmac.new(key, session_id.encode(), hashlib.sha256).digest()
@@ -36,15 +36,19 @@ class SovereignSessionController:
             expected_token = hmac.new(key, session_id.encode(), hashlib.sha256).digest()
             return hmac.compare_digest(expected_token, token)
 
-        def validate_and_update_state(node_id: str, initial_state: dict, session_token: bytes = None) -> bool:
-            session_id = f"session-{node_id}"
+        def validate_and_update_state(node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, **kwargs) -> bool:
+            target_node = node_id or "default-node"
+            session_id = f"session-{target_node}"
+            state_data = initial_state or incoming_state or {}
+            
             if session_id in _sessions:
-                _sessions[session_id]["initial_state"] = initial_state
+                _sessions[session_id]["initial_state"] = state_data
                 return True
+                
             key = _state["session_encryption_key"]
             _sessions[session_id] = {
                 "secret_key": key,
-                "initial_state": initial_state,
+                "initial_state": state_data,
                 "active": True
             }
             return True
@@ -66,14 +70,14 @@ class SovereignSessionController:
     def create_session(self, session_id: str, secret_key: bytes):
         return self._engine["create_session"](session_id, secret_key)
 
-    def create_secure_session(self, node_id: str, initial_state: dict):
-        return self._engine["create_secure_session"](node_id, initial_state)
+    def create_secure_session(self, node_id: str, initial_state: dict = None, **kwargs):
+        return self._engine["create_secure_session"](node_id, initial_state, **kwargs)
 
     def validate_session_token(self, session_id: str, token: bytes):
         return self._engine["validate_session_token"](session_id, token)
 
-    def validate_and_update_state(self, node_id: str, initial_state: dict, session_token: bytes = None):
-        return self._engine["validate_and_update_state"](node_id, initial_state, session_token)
+    def validate_and_update_state(self, node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, **kwargs):
+        return self._engine["validate_and_update_state"](node_id=node_id, initial_state=initial_state, incoming_state=incoming_state, session_token=session_token, **kwargs)
 
     def terminate_session(self, session_id: str):
         return self._engine["terminate_session"](session_id)
