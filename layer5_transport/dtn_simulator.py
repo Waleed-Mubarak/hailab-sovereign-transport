@@ -3,7 +3,7 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع إدارة حالة الاتصال وحجم الطابور ومتطلبات L5-C3."""
+    """محاكي نقل DTN للطبقة الخامسة مع التخزين والتوجيه ومتطلبات L5-C3."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -28,6 +28,26 @@ class SovereignDTNTransportSimulator:
             }
             _bundles[bundle_id] = bundle
             return bundle
+
+        def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
+            """تخزين وإعادة توجيه الحزمة وتوليد المعرف والتحقق الأمني."""
+            bundle_id = f"bundle-{hashlib.sha256(str(payload).encode()).hexdigest()[:8]}"
+            destination = destination_node or "default-dest"
+            secret = session_key or _state["master_secret"]
+            
+            metadata = {
+                "bundle_id": bundle_id,
+                "destination": destination,
+            }
+            canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
+            bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
+            
+            _bundles[bundle_id] = {
+                "metadata": metadata,
+                "payload": payload,
+                "hmac": bundle_hmac
+            }
+            return True
 
         def verify_and_route_bundle(bundle: dict) -> bool:
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
@@ -63,6 +83,7 @@ class SovereignDTNTransportSimulator:
 
         self._engine = {
             "create_bundle": create_bundle,
+            "store_and_forward_packet": store_and_forward_packet,
             "verify_and_route_bundle": verify_and_route_bundle,
             "check_duress_trigger": check_duress_trigger,
             "get_link_status": lambda: _state["link_status"],
@@ -79,6 +100,9 @@ class SovereignDTNTransportSimulator:
 
     def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None):
         return self._engine["create_bundle"](bundle_id, destination, payload, protection_fields)
+
+    def store_and_forward_packet(self, payload, destination_node: str = None, session_key: bytes = None, **kwargs):
+        return self._engine["store_and_forward_packet"](payload, destination_node=destination_node, session_key=session_key, **kwargs)
 
     def verify_and_route_bundle(self, bundle: dict):
         return self._engine["verify_and_route_bundle"](bundle)
