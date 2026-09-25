@@ -3,12 +3,20 @@ import sys
 import hmac
 import hashlib
 import unittest
+import importlib.util
 
-# ضبط مسار بايثون ليشمل المجلد الرئيسي للمشروع
+# إضافة مجلد الجذر إلى مسار بايثون
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from layer2_transport.session_controller import SovereignSessionController
-from layer5_transport.security_kernel import SovereignSecurityKernel
+
+# تحميل SovereignSecurityKernel مباشرة من مساره في الطبقة الخامسة لتجنب مشاكل الحزم
+kernel_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../layer5_transport/security_kernel.py'))
+spec = importlib.util.spec_from_file_location("security_kernel", kernel_path)
+security_kernel_module = importlib.util.module_from_spec(spec)
+sys.modules["security_kernel"] = security_kernel_module
+spec.loader.exec_module(security_kernel_module)
+SovereignSecurityKernel = security_kernel_module.SovereignSecurityKernel
 
 class TestSovereignTransportEnterprise(unittest.TestCase):
     """اختبار التكامل المؤسسي الشامل بين الطبقة 2 والطبقة 5."""
