@@ -36,16 +36,26 @@ class SovereignSessionController:
             expected_token = hmac.new(key, session_id.encode(), hashlib.sha256).digest()
             return hmac.compare_digest(expected_token, token)
 
-        def validate_and_update_state(node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, **kwargs) -> bool:
+        def validate_and_update_state(node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, incoming_signature: bytes = None, **kwargs) -> bool:
+            key = _state["session_encryption_key"]
+            
+            # معالجة الثغرة (1): التحقق الصارم من التوقيع القادم لمنع التلاعب بالحالة
+            if incoming_signature is not None and incoming_state is not None:
+                payload = str(incoming_state).encode('utf-8')
+                expected_signature = hmac.new(key, payload, hashlib.sha256).digest()
+                if not hmac.compare_digest(expected_signature, incoming_signature):
+                    return False
+
             target_node = node_id or "default-node"
             session_id = f"session-{target_node}"
             state_data = initial_state or incoming_state or {}
             
             if session_id in _sessions:
+                if not _sessions[session_id]["active"]:
+                    return False
                 _sessions[session_id]["initial_state"] = state_data
                 return True
                 
-            key = _state["session_encryption_key"]
             _sessions[session_id] = {
                 "secret_key": key,
                 "initial_state": state_data,
@@ -76,8 +86,8 @@ class SovereignSessionController:
     def validate_session_token(self, session_id: str, token: bytes):
         return self._engine["validate_session_token"](session_id, token)
 
-    def validate_and_update_state(self, node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, **kwargs):
-        return self._engine["validate_and_update_state"](node_id=node_id, initial_state=initial_state, incoming_state=incoming_state, session_token=session_token, **kwargs)
+    def validate_and_update_state(self, node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, incoming_signature: bytes = None, **kwargs):
+        return self._engine["validate_and_update_state"](node_id=node_id, initial_state=initial_state, incoming_state=incoming_state, session_token=session_token, incoming_signature=incoming_signature, **kwargs)
 
     def terminate_session(self, session_id: str):
         return self._engine["terminate_session"](session_id)
