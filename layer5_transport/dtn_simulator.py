@@ -3,7 +3,7 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع إدارة حالة الاتصال ومتطلبات L5-C3."""
+    """محاكي نقل DTN للطبقة الخامسة مع إدارة حالة الاتصال وحجم الطابور ومتطلبات L5-C3."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -65,12 +65,17 @@ class SovereignDTNTransportSimulator:
             "create_bundle": create_bundle,
             "verify_and_route_bundle": verify_and_route_bundle,
             "check_duress_trigger": check_duress_trigger,
-            "get_link_status": lambda: _state["link_status"]
+            "get_link_status": lambda: _state["link_status"],
+            "get_queue_size": lambda: len(_bundles)
         }
 
     @property
     def link_status(self):
         return self._engine["get_link_status"]()
+
+    @property
+    def queue_size(self):
+        return self._engine["get_queue_size"]()
 
     def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None):
         return self._engine["create_bundle"](bundle_id, destination, payload, protection_fields)
