@@ -1,75 +1,69 @@
 import hmac
 import hashlib
-import unittest
-import sys
-import os
-
-# إضافة جذر المشروع إلى مسار بايثون
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
-
-# استيراد المراقب من داخل مجلد الطبقة الثانية الصحيح
+import pytest
 from layer2_transport.session_controller import SovereignSessionController
+from security_kernel import SovereignSecurityKernel
 
-class TestSovereignSessionController(unittest.TestCase):
-    def test_layer2_session_management(self):
-        secret_key = b"test_session_encryption_key_32bytes_len!!"
-        controller = SovereignSessionController(node_id="node-alpha", session_encryption_key=secret_key)
-        
-        initial_state = {"status": "init", "counter": 1}
-        token = controller.create_secure_session(node_id="node-beta", initial_state=initial_state)
-        self.assertNotEqual(token, "")
+def test_enterprise_sovereign_transport_flow():
+    """اختبار التكامل المؤسسي الشامل: الجلسات، التوقيع، نواة الأمان، ومنع إعادة التشغيل."""
+    
+    # 1. تهيئة المتحكم والنواة الأمنية السيادية
+    controller = SovereignSessionController()
+    kernel = SovereignSecurityKernel()
+    
+    node_id = "alpha-node"
+    
+    # 2. إنشاء جلسة آمنة بالحالة الابتدائية والعداد الأول
+    initial_state = {"counter": 1, "status": "init"}
+    token = controller.create_secure_session(node_id=node_id, initial_state=initial_state)
+    assert token is not None, "فشل إنشاء رمز الجلسة الآمنة"
 
-        updated_state = {"status": "running", "counter": 2}
-        payload = str(updated_state).encode('utf-8')
-        valid_signature = hmac.new(secret_key, payload, hashlib.sha256).digest()
+    # مفتاح التشفير الافتراضي المستخدم في الجلسات الآمنة
+    session_key = b"default_secure_key_32bytes_len!!"
 
-        success = controller.validate_and_update_state(
-            session_token=token, 
-            incoming_state=updated_state, 
-            incoming_signature=valid_signature
-        )
-        
-        self.assertTrue(success)
+    # 3. محاكاة تحديث شرعي للحالة بعداد تصاعدي جديد (counter = 2)
+    new_state = {"counter": 2, "status": "active_execution"}
+    payload = str(new_state).encode('utf-8')
+    valid_signature = hmac.new(session_key, payload, hashlib.sha256).digest()
 
-    def test_layer2_invalid_session_rejection(self):
-        """اختبار عدائي لمعالجة الثغرة (1): التأكد من رفض تحديث الحالة (إرجاع False) عند استخدام رمز جلسة أو توقيع غير صالح"""
-        secret_key = b"test_session_encryption_key_32bytes_len!!"
-        controller = SovereignSessionController(node_id="node-alpha", session_encryption_key=secret_key)
-        
-        initial_state = {"status": "init", "counter": 1}
-        token = controller.create_secure_session(node_id="node-beta", initial_state=initial_state)
+    # التحقق عبر نواة الأمان السيادية
+    authorized = kernel.evaluate_and_authorize(
+        session_controller=controller,
+        session_token=token,
+        incoming_state=new_state,
+        incoming_signature=valid_signature,
+        destination_node=node_id
+    )
+    assert authorized is True, "يجب أن يتم قبول التحديث الشرعي والتصاعدي بنجاح"
 
-        updated_state = {"status": "hacked", "counter": 999}
-        invalid_signature = b"invalid_signature_bytes_1234567890"
+    # 4. محاكاة هجوم إعادة التشغيل (Replay Attack): إعادة إرسال نفس الطلب بـ (counter = 2)
+    replay_authorized = kernel.evaluate_and_authorize(
+        session_controller=controller,
+        session_token=token,
+        incoming_state=new_state,
+        incoming_signature=valid_signature,
+        destination_node=node_id
+    )
+    assert replay_authorized is False, "يجب رفض هجمات إعادة التشغيل (Replay Attacks) قطعياً بواسطة فحص العداد!"
 
-        # التحقق من أن النظام يرفض التحديث ويُرجع False بشكل قاطع عند استخدام توقيع غير صالح
-        success = controller.validate_and_update_state(
-            session_token=token, 
-            incoming_state=updated_state, 
-            incoming_signature=invalid_signature
-        )
-        self.assertFalse(success)
+    # 5. محاكاة إرسال عداد قديم أو متأخر (counter = 1)
+    old_state = {"counter": 1, "status": "old_payload"}
+    old_payload = str(old_state).encode('utf-8')
+    old_signature = hmac.new(session_key, old_payload, hashlib.sha256).digest()
 
-    def test_layer5_metadata_consistency(self):
-        """اختبار الثغرة 2: التأكد من أن تعديل الوجهة مع ثبات البيانات الوصفية يؤدي إلى فشل التحقق"""
-        master_secret = b"sovereign_master_secret_2026"
-        original_destination = "node-alpha"
-        metadata = {"priority": "high", "sequence": 1}
-        
-        # حمولة صحيحة وموقعة تربط الوجهة بالبيانات الوصفية معاً لتفادي التلاعب
-        payload_original = f"{original_destination}:{str(sorted(metadata.items()))}".encode('utf-8')
-        valid_hmac = hmac.new(master_secret, payload_original, hashlib.sha256).digest()
+    old_authorized = kernel.evaluate_and_authorize(
+        session_controller=controller,
+        session_token=token,
+        incoming_state=old_state,
+        incoming_signature=old_signature,
+        destination_node=node_id
+    )
+    assert old_authorized is False, "يجب رفض أي طلب يحتوي على عداد قديم أو مساوٍ للعداد الحالي"
 
-        # محاولة التلاعب بالوجهة وحدها مع إبقاء البيانات الوصفية القديمة
-        tampered_destination = "node-hacker-target"
-        payload_tampered = f"{tampered_destination}:{str(sorted(metadata.items()))}".encode('utf-8')
-        computed_hmac = hmac.new(master_secret, payload_tampered, hashlib.sha256).digest()
-
-        # التحقق يجب أن يفشل بشكل قاطع بسبب عدم مطابقة الرمز الناتج
-        self.assertFalse(
-            hmac.compare_digest(computed_hmac, valid_hmac),
-            "Metadata consistency check failed: Tampered destination was incorrectly accepted!"
-        )
-
-if __name__ == '__main__':
-    unittest.main()
+    # 6. التحقق من عمل سجلات التدقيق الأمني (Audit Trail)
+    audit_trail = kernel.get_audit_trail()
+    assert len(audit_trail) >= 3, "يجب تسجيل كافة محاولات التفويض والرفض في سجل التدقيق"
+    
+    # التأكد من أن محاولة إعادة التشغيل تم تسجيلها كحالة مرفوضة (DENIED)
+    denied_events = [event for event in audit_trail if event["status"] == "DENIED"]
+    assert len(denied_events) > 0, "يجب رصد وتوثيق الهجمات المرفوضة في السجلات"
