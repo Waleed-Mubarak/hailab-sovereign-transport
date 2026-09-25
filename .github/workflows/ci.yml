@@ -11,16 +11,14 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
 
-      - name: Run Unit & Integration Tests
-        env:
-          PYTHONPATH: ./hailab-sovereign-transport/hailab-sovereign-transport
-        run: |
-          python -m unittest hailab-sovereign-transport/hailab-sovereign-transport/tests/test_sovereign_transport.py
+    - name: Run Unit & Integration Tests
+      run: |
+        python -m unittest discover -s . -p "test_*.py"
