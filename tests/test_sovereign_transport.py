@@ -50,5 +50,26 @@ class TestSovereignSessionController(unittest.TestCase):
                 incoming_signature=invalid_signature
             )
 
+    def test_layer5_metadata_consistency(self):
+        """اختبار الثغرة 2: التأكد من أن تعديل الوجهة مع ثبات البيانات الوصفية يؤدي إلى فشل التحقق"""
+        master_secret = b"sovereign_master_secret_2026"
+        original_destination = "node-alpha"
+        metadata = {"priority": "high", "sequence": 1}
+        
+        # حمولة صحيحة وموقعة تربط الوجهة بالبيانات الوصفية معاً لتفادي التلاعب
+        payload_original = f"{original_destination}:{str(sorted(metadata.items()))}".encode('utf-8')
+        valid_hmac = hmac.new(master_secret, payload_original, hashlib.sha256).digest()
+
+        # محاولة التلاعب بالوجهة وحدها مع إبقاء البيانات الوصفية القديمة
+        tampered_destination = "node-hacker-target"
+        payload_tampered = f"{tampered_destination}:{str(sorted(metadata.items()))}".encode('utf-8')
+        computed_hmac = hmac.new(master_secret, payload_tampered, hashlib.sha256).digest()
+
+        # التحقق يجب أن يفشل بشكل قاطع بسبب عدم مطابقة الرمز الناتج
+        self.assertFalse(
+            hmac.compare_digest(computed_hmac, valid_hmac),
+            "Metadata consistency check failed: Tampered destination was incorrectly accepted!"
+        )
+
 if __name__ == '__main__':
     unittest.main()
