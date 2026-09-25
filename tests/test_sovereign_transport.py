@@ -3,22 +3,20 @@ import os
 import hmac
 import hashlib
 import unittest
+import importlib
 
-# خوارزمية بحث ذكية ومتسلسلة للعثور على مجلد المشروع الحقيقي وإضافته لمسار بايثون
+# ضمان إضافة مسار الجذر إلى نظام بايثون
 current_dir = os.path.dirname(os.path.abspath(__file__))
-target_path = current_dir
-
-for _ in range(3):
-    if os.path.exists(os.path.join(target_path, "layer2_transport")):
-        break
-    target_path = os.path.dirname(target_path)
-
+target_path = os.path.dirname(current_dir)
 if target_path not in sys.path:
     sys.path.insert(0, target_path)
 
-# الاستيراد المباشر بعد التأكد من التقاط المسار الصحيح
-from layer2_transport.session_controller import SovereignSessionController
-from layer2_transport.security_kernel import SovereignSecurityKernel
+# الاستيراد الديناميكي الآمن لتجنب أي عوائق في مسارات أو أسماء الطبقات
+session_controller_module = importlib.import_module("layer2_transport.session_controller")
+security_kernel_module = importlib.import_module("layer2_transport.security_kernel")
+
+SovereignSessionController = session_controller_module.SovereignSessionController
+SovereignSecurityKernel = security_kernel_module.SovereignSecurityKernel
 
 class TestSovereignTransportEnterprise(unittest.TestCase):
     """اختبار التكامل المؤسسي الشامل: الجلسات، التوقيع، نواة الأمان، ومنع إعادة التشغيل."""
