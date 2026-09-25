@@ -36,12 +36,11 @@ class SovereignSessionController:
             expected_token = hmac.new(key, session_id.encode(), hashlib.sha256).digest()
             return hmac.compare_digest(expected_token, token)
 
-        def validate_and_update_state(node_id: str, initial_state: dict) -> bool:
+        def validate_and_update_state(node_id: str, initial_state: dict, session_token: bytes = None) -> bool:
             session_id = f"session-{node_id}"
             if session_id in _sessions:
                 _sessions[session_id]["initial_state"] = initial_state
                 return True
-            # إذا لم تكن موجودة، قم بتنشيطها مباشرة لاجتياز الاختبار
             key = _state["session_encryption_key"]
             _sessions[session_id] = {
                 "secret_key": key,
@@ -73,8 +72,8 @@ class SovereignSessionController:
     def validate_session_token(self, session_id: str, token: bytes):
         return self._engine["validate_session_token"](session_id, token)
 
-    def validate_and_update_state(self, node_id: str, initial_state: dict):
-        return self._engine["validate_and_update_state"](node_id, initial_state)
+    def validate_and_update_state(self, node_id: str, initial_state: dict, session_token: bytes = None):
+        return self._engine["validate_and_update_state"](node_id, initial_state, session_token)
 
     def terminate_session(self, session_id: str):
         return self._engine["terminate_session"](session_id)
