@@ -1,10 +1,6 @@
 name: Sovereign Transport CI
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push, pull_request]
 
 jobs:
   build-and-test:
@@ -24,8 +20,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Run Pytest with Explicit Path
-        env:
-          PYTHONPATH: .
+      - name: Run Pytest
         run: |
-          pytest -v
+          python -m pytest -v
