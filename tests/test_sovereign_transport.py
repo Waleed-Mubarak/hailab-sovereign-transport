@@ -32,7 +32,7 @@ class TestSovereignSessionController(unittest.TestCase):
         self.assertTrue(success)
 
     def test_layer2_invalid_session_rejection(self):
-        """اختبار عدائي لمعالجة الثغرة (1): التأكد من رفض تحديث الحالة عند استخدام رمز جلسة أو توقيع غير صالح"""
+        """اختبار عدائي لمعالجة الثغرة (1): التأكد من رفض تحديث الحالة (إرجاع False) عند استخدام رمز جلسة أو توقيع غير صالح"""
         secret_key = b"test_session_encryption_key_32bytes_len!!"
         controller = SovereignSessionController(node_id="node-alpha", session_encryption_key=secret_key)
         
@@ -42,13 +42,13 @@ class TestSovereignSessionController(unittest.TestCase):
         updated_state = {"status": "hacked", "counter": 999}
         invalid_signature = b"invalid_signature_bytes_1234567890"
 
-        # التحقق من أن النظام يرفض التحديث بشكل قاطع عند استخدام توقيع غير صالح
-        with self.assertRaises((ValueError, PermissionError, AssertionError, Exception)):
-            controller.validate_and_update_state(
-                session_token=token, 
-                incoming_state=updated_state, 
-                incoming_signature=invalid_signature
-            )
+        # التحقق من أن النظام يرفض التحديث ويُرجع False بشكل قاطع عند استخدام توقيع غير صالح
+        success = controller.validate_and_update_state(
+            session_token=token, 
+            incoming_state=updated_state, 
+            incoming_signature=invalid_signature
+        )
+        self.assertFalse(success)
 
     def test_layer5_metadata_consistency(self):
         """اختبار الثغرة 2: التأكد من أن تعديل الوجهة مع ثبات البيانات الوصفية يؤدي إلى فشل التحقق"""
