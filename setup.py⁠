@@ -2,17 +2,6 @@ from setuptools import setup, find_packages
 
 setup(
     name="hailab-sovereign-transport",
-    version="1.0.0",
-    packages=find_packages(include=[
-        "layer1_transport",
-        "layer1_transport.*",
-        "layer2_transport",
-        "layer2_transport.*",
-        "layer3_transport",
-        "layer3_transport.*",
-        "layer4_transport",
-        "layer4_transport.*",
-        "layer5_transport",
-        "layer5_transport.*"
-    ]),
+    version="3.0.0",
+    packages=find_packages(),
 )
