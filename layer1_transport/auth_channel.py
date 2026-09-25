@@ -1,68 +1,42 @@
-"""
-Layer 1: Channel Authentication & Cryptographic Transport (Dr. Hikmat Hardened Pattern - v3)
-Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
-"""
 import hmac
 import hashlib
-import os
 
-class SecureRegistrySet(set):
-    """مجموعة محمية تمنع المسح أو التعديل المباشر لمنع ثغرات التجاوز."""
-    def clear(self):
-        raise PermissionError("Direct clearing of protected registry set is strictly prohibited.")
-    def pop(self):
-        raise PermissionError("Direct popping from protected registry set is strictly prohibited.")
+class SecureSetContainer:
+    """حاوية بيانات آمنة لا ترث من set لمنع تجاوز العمليات على مستوى لغة C."""
+    def __init__(self):
+        self._items = []
 
-# التخزين على مستوى الوحدة المفهرس بـ id(instance) لمنع التجاوز عبر __dict__
-_CHANNEL_DATA = {}
+    def add(self, item):
+        if item not in self._items:
+            self._items.append(item)
 
-class SovereignChannelEngine:
-    def __init__(self, node_id: str, master_secret: bytes):
-        _CHANNEL_DATA[id(self)] = {
-            "node_id": node_id,
-            "master_secret": bytearray(master_secret),
-            "seen_nonces": SecureRegistrySet(),
-            "session_active": False
-        }
+    def discard(self, item):
+        if item in self._items:
+            self._items.remove(item)
 
-    def __setattr__(self, key, value):
-        """حراسة صارمة لمنع التعديل المباشر للسمات."""
-        raise AttributeError("Direct attribute modification is strictly prohibited.")
+    def __contains__(self, item):
+        return item in self._items
 
-    def create_handshake(self) -> tuple:
-        """إنشاء تحديث وتوقيع للمصافحة."""
-        state = _CHANNEL_DATA.get(id(self))
-        if not state:
-            return b"", b""
-        nonce = os.urandom(16)
-        signature = hmac.new(bytes(state["master_secret"]), nonce, hashlib.sha256).digest()
-        return nonce, signature
 
-    def create_handshake_challenge(self) -> tuple:
-        """الدالة المطلوبة بالاسم تماماً من قِبل اختبار الـ CI للطبقة الأولى."""
-        return self.create_handshake()
+def create_auth_channel(node_id: str, master_secret: bytes):
+    """إنشاء قناة مصادقة باستخدام النطاق المغلق لمنع الوصول المباشر للسجلات."""
+    _state = {
+        "node_id": node_id,
+        "master_secret": master_secret,
+        "seen_nonces": SecureSetContainer()
+    }
 
-    def authenticate_handshake(self, incoming_nonce: bytes, incoming_signature: bytes) -> bool:
-        """التحقق من صحة المصافحة ومنع هجمات إعادة التشغيل."""
-        state = _CHANNEL_DATA.get(id(self))
-        if not state:
+    def authenticate_payload(payload: str, signature: bytes) -> bool:
+        expected_sig = hmac.new(_state["master_secret"], payload.encode(), hashlib.sha256).digest()
+        return hmac.compare_digest(expected_sig, signature)
+
+    def verify_nonce(nonce: str) -> bool:
+        if nonce in _state["seen_nonces"]:
             return False
-            
-        if incoming_nonce in state["seen_nonces"]:
-            return False
+        _state["seen_nonces"].add(nonce)
+        return True
 
-        expected_sig = hmac.new(bytes(state["master_secret"]), incoming_nonce, hashlib.sha256).digest()
-        if hmac.compare_digest(expected_sig, incoming_signature):
-            state["seen_nonces"].add(incoming_nonce)
-            state["session_active"] = True
-            return True
-        return False
-
-    def verify_and_establish(self, incoming_nonce: bytes, incoming_signature: bytes) -> bool:
-        """الدالة المطلوبة بالاسم في الـ CI للتحقق والاعتماد."""
-        return self.authenticate_handshake(incoming_nonce, incoming_signature)
-
-    @property
-    def session_active(self) -> bool:
-        state = _CHANNEL_DATA.get(id(self))
-        return state["session_active"] if state else False
+    return {
+        "authenticate_payload": authenticate_payload,
+        "verify_nonce": verify_nonce
+    }
