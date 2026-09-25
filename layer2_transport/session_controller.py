@@ -36,31 +36,34 @@ class SovereignSessionController:
             expected_token = hmac.new(key, session_id.encode(), hashlib.sha256).digest()
             return hmac.compare_digest(expected_token, token)
 
-        def validate_and_update_state(node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, incoming_signature: bytes = None, **kwargs) -> bool:
-            key = _state["session_encryption_key"]
-            
-            # معالجة الثغرة (1): التحقق الصارم من التوقيع القادم لمنع التلاعب بالحالة
-            if incoming_signature is not None and incoming_state is not None:
-                payload = str(incoming_state).encode('utf-8')
-                expected_signature = hmac.new(key, payload, hashlib.sha256).digest()
-                if not hmac.compare_digest(expected_signature, incoming_signature):
-                    return False
-
-            target_node = node_id or "default-node"
-            session_id = f"session-{target_node}"
-            state_data = initial_state or incoming_state or {}
-            
-            if session_id in _sessions:
-                if not _sessions[session_id]["active"]:
-                    return False
-                _sessions[session_id]["initial_state"] = state_data
-                return True
+        def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None, **kwargs) -> bool:
+            # 1. إلزامية توفر رمز الجلسة، الحالة الجديدة، والتوقيع لمنع أي ثغرة تجاوز
+            if session_token is None or incoming_state is None or incoming_signature is None:
+                return False
                 
-            _sessions[session_id] = {
-                "secret_key": key,
-                "initial_state": state_data,
-                "active": True
-            }
+            # 2. البحث الآمن عن الجلسة المطابقة لرمز الجلسة (Token) حصراً ودون تخمين
+            target_session = None
+            for s_id, s_info in _sessions.items():
+                if not s_info["active"]:
+                    continue
+                expected_token = hmac.new(s_info["secret_key"], s_id.encode(), hashlib.sha256).digest()
+                if hmac.compare_digest(expected_token, session_token):
+                    target_session = s_info
+                    break
+            
+            if target_session is None:
+                return False
+                
+            # 3. التحقق الصارم من التوقيع الرقمي للحالة الواردة باستخدام مفتاح الجلسة الخاص
+            key = target_session["secret_key"]
+            payload = str(incoming_state).encode('utf-8')
+            expected_signature = hmac.new(key, payload, hashlib.sha256).digest()
+            
+            if not hmac.compare_digest(expected_signature, incoming_signature):
+                return False
+            
+            # 4. تحديث الحالة بأمان تام بعد اجتياز كافة الفحوصات
+            target_session["initial_state"] = incoming_state
             return True
 
         def terminate_session(session_id: str) -> bool:
@@ -86,8 +89,8 @@ class SovereignSessionController:
     def validate_session_token(self, session_id: str, token: bytes):
         return self._engine["validate_session_token"](session_id, token)
 
-    def validate_and_update_state(self, node_id: str = None, initial_state: dict = None, incoming_state: dict = None, session_token: bytes = None, incoming_signature: bytes = None, **kwargs):
-        return self._engine["validate_and_update_state"](node_id=node_id, initial_state=initial_state, incoming_state=incoming_state, session_token=session_token, incoming_signature=incoming_signature, **kwargs)
+    def validate_and_update_state(self, session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None, **kwargs):
+        return self._engine["validate_and_update_state"](session_token=session_token, incoming_state=incoming_state, incoming_signature=incoming_signature, **kwargs)
 
     def terminate_session(self, session_id: str):
         return self._engine["terminate_session"](session_id)
