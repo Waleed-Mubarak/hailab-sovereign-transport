@@ -4,11 +4,11 @@ import hmac
 import hashlib
 import unittest
 
-# ضبط مسار بايثون ليشمل المجلد الرئيسي للمشروع لضمان استيراد الوحدات بنجاح
+# ضبط مسار بايثون ليشمل المجلد الرئيسي للمشروع
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from layer2_transport.session_controller import SovereignSessionController
-from security_kernel import SovereignSecurityKernel
+from layer5_transport.security_kernel import SovereignSecurityKernel
 
 class TestSovereignTransportEnterprise(unittest.TestCase):
     """اختبار التكامل المؤسسي الشامل: الجلسات، التوقيع، نواة الأمان، ومنع إعادة التشغيل."""
