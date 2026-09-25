@@ -4,9 +4,8 @@ import hmac
 import hashlib
 import unittest
 
-# فرض إضافة مسار الجذر (Root) مباشرة وصراحة إلى بايثون لضمان رؤية الحزم في غيت هب
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_root = os.path.abspath(os.path.join(current_dir, '..'))
+# فرض المسار المطلق لجذر المشروع بشكل قاطع ليتوافق مع بيئة السيرفر الافتراضي
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
