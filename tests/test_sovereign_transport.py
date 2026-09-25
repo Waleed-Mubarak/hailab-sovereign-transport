@@ -1,30 +1,27 @@
 import sys
 import os
+
+# طباعة معلومات التشخيص مباشرة في سجلات الـ CI للتأكد من المسارات
+print("--- CI DEBUG INFO ---")
+print("Current File Path:", __file__)
+print("Current Working Directory:", os.getcwd())
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.dirname(current_dir)
+print("Calculated Root Dir:", root_dir)
+
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
+print("Contents of Root Dir:", os.listdir(root_dir) if os.path.exists(root_dir) else "Root not found")
+print("---------------------")
+
 import hmac
 import hashlib
 import unittest
-import importlib
 
-# إضافة جذر المشروع بشكل مطلق وثابت بناءً على مسار العمل الحالي
-root_path = os.getcwd()
-if root_path not in sys.path:
-    sys.path.insert(0, root_path)
-
-# الاستيراد الديناميكي الآمن عبر importlib لتجاوز أي مشاكل في مسارات الـ CI
-try:
-    session_controller_module = importlib.import_module("layer2_transport.session_controller")
-    security_kernel_module = importlib.import_module("layer2_transport.security_kernel")
-    
-    SovereignSessionController = session_controller_module.SovereignSessionController
-    SovereignSecurityKernel = security_kernel_module.SovereignSecurityKernel
-except ImportError as e:
-    # محاولة بديلة إذا كان المسار بحاجة لعدA تعديل إضافي
-    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-    session_controller_module = importlib.import_module("layer2_transport.session_controller")
-    security_kernel_module = importlib.import_module("layer2_transport.security_kernel")
-    
-    SovereignSessionController = session_controller_module.SovereignSessionController
-    SovereignSecurityKernel = security_kernel_module.SovereignSecurityKernel
+# الاستيراد المباشر والآمن بعد إجبار بايثون على اعتماد مسار الجذر
+from layer2_transport.session_controller import SovereignSessionController
+from layer2_transport.security_kernel import SovereignSecurityKernel
 
 class TestSovereignTransportEnterprise(unittest.TestCase):
     """اختبار التكامل المؤسسي الشامل: الجلسات، التوقيع، نواة الأمان، ومنع إعادة التشغيل."""
