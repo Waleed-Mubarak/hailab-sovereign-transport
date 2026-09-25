@@ -18,9 +18,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install pytest
 
-      - name: Run Test Script Directly
+      - name: Run Test with Correct Working Directory
         env:
-          PYTHONPATH: .
+          PYTHONPATH: ./hailab-sovereign-transport
         run: |
-          python tests/test_sovereign_transport.py
+          python -m pytest -v
