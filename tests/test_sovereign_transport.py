@@ -4,8 +4,11 @@ import hmac
 import hashlib
 import unittest
 
-# ضبط مسار بايثون ليشمل المجلد الرئيسي للمشروع
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# فرض إضافة مسار الجذر مباشرة إلى بايثون لضمان رؤية المجلدات في غيت هب
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.abspath(os.path.join(current_dir, '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from layer2_transport.session_controller import SovereignSessionController
 from layer2_transport.security_kernel import SovereignSecurityKernel
