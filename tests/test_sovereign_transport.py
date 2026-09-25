@@ -1,6 +1,12 @@
+import os
+import sys
 import hmac
 import hashlib
 import unittest
+
+# ضبط مسار بايثون ليشمل المجلد الرئيسي للمشروع لضمان استيراد الوحدات بنجاح
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from layer2_transport.session_controller import SovereignSessionController
 from security_kernel import SovereignSecurityKernel
 
