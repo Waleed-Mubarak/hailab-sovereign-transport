@@ -1,8 +1,9 @@
 import hmac
 import hashlib
+import time
 
 class SovereignSessionController:
-    """إدارة الجلسات للطبقة الثانية بالنمط المحصّن والنطاق المغلق."""
+    """إدارة الجلسات للطبقة الثانية بالمعيار المؤسسي المحصّن (Enterprise-Grade)."""
     def __init__(self, node_id: str = None, session_encryption_key: bytes = None):
         _sessions = {}
         _state = {
@@ -15,17 +16,24 @@ class SovereignSessionController:
                 return False
             _sessions[session_id] = {
                 "secret_key": secret_key,
-                "active": True
+                "active": True,
+                "last_counter": 0,
+                "created_at": time.time()
             }
             return True
 
         def create_secure_session(node_id: str, initial_state: dict = None, **kwargs) -> bytes:
             session_id = f"session-{node_id}"
             key = _state["session_encryption_key"]
+            init_st = initial_state or {}
+            initial_counter = init_st.get("counter", 0)
+            
             _sessions[session_id] = {
                 "secret_key": key,
-                "initial_state": initial_state or {},
-                "active": True
+                "initial_state": init_st,
+                "active": True,
+                "last_counter": initial_counter,
+                "created_at": time.time()
             }
             return hmac.new(key, session_id.encode(), hashlib.sha256).digest()
 
@@ -37,11 +45,11 @@ class SovereignSessionController:
             return hmac.compare_digest(expected_token, token)
 
         def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None, **kwargs) -> bool:
-            # 1. إلزامية توفر رمز الجلسة، الحالة الجديدة، والتوقيع لمنع أي ثغرة تجاوز
+            # 1. التحقق الإلزامي من وجود المدخلات لمنع التجاوز
             if session_token is None or incoming_state is None or incoming_signature is None:
                 return False
                 
-            # 2. البحث الآمن عن الجلسة المطابقة لرمز الجلسة (Token) حصراً ودون تخمين
+            # 2. البحث الآمن عن الجلسة النشطة المطابقة لرمز الجلسة
             target_session = None
             for s_id, s_info in _sessions.items():
                 if not s_info["active"]:
@@ -54,7 +62,12 @@ class SovereignSessionController:
             if target_session is None:
                 return False
                 
-            # 3. التحقق الصارم من التوقيع الرقمي للحالة الواردة باستخدام مفتاح الجلسة الخاص
+            # 3. حماية مؤسسية: التحقق من العداد التصاعدي لمنع هجمات إعادة التشغيل (Replay Attacks)
+            incoming_counter = incoming_state.get("counter", 0)
+            if incoming_counter <= target_session["last_counter"]:
+                return False  # رفض الطلبات القديمة أو المكررة فوراً
+                
+            # 4. التحقق الصارم من التوقيع الرقمي لمنع التلاعب بالحالة
             key = target_session["secret_key"]
             payload = str(incoming_state).encode('utf-8')
             expected_signature = hmac.new(key, payload, hashlib.sha256).digest()
@@ -62,7 +75,8 @@ class SovereignSessionController:
             if not hmac.compare_digest(expected_signature, incoming_signature):
                 return False
             
-            # 4. تحديث الحالة بأمان تام بعد اجتياز كافة الفحوصات
+            # 5. اعتماد الحالة وتحديث العداد التصاعدي بأمان تام
+            target_session["last_counter"] = incoming_counter
             target_session["initial_state"] = incoming_state
             return True
 
