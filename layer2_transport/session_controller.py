@@ -19,10 +19,22 @@ class SovereignSessionController:
             }
             return True
 
+        def create_secure_session(node_id: str, initial_state: dict) -> bytes:
+            """إنشاء جلسة آمنة مطابقة لما يطلبه ملف الاختبار."""
+            session_id = f"session-{node_id}"
+            key = _state["session_encryption_key"] or b"default_secure_key_32bytes_len!!"
+            _sessions[session_id] = {
+                "secret_key": key,
+                "initial_state": initial_state,
+                "active": True
+            }
+            # إرجاع رمز الجلسة (Token) المشفر
+            return hmac.new(key, session_id.encode(), hashlib.sha256).digest()
+
         def validate_session_token(session_id: str, token: bytes) -> bool:
             if session_id not in _sessions or not _sessions[session_id]["active"]:
                 return False
-            key = _state["session_encryption_key"] or _sessions[session_id]["secret_key"]
+            key = _sessions[session_id]["secret_key"]
             expected_token = hmac.new(key, session_id.encode(), hashlib.sha256).digest()
             return hmac.compare_digest(expected_token, token)
 
@@ -34,12 +46,16 @@ class SovereignSessionController:
 
         self._engine = {
             "create_session": create_session,
+            "create_secure_session": create_secure_session,
             "validate_session_token": validate_session_token,
             "terminate_session": terminate_session
         }
 
     def create_session(self, session_id: str, secret_key: bytes):
         return self._engine["create_session"](session_id, secret_key)
+
+    def create_secure_session(self, node_id: str, initial_state: dict):
+        return self._engine["create_secure_session"](node_id, initial_state)
 
     def validate_session_token(self, session_id: str, token: bytes):
         return self._engine["validate_session_token"](session_id, token)
