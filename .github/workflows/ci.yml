@@ -21,6 +21,6 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Run Direct Test Execution
+      - name: Run Unit & Integration Tests
         run: |
-          python tests/test_sovereign_transport.py
+          python -m unittest discover -s tests -p "test_*.py"
