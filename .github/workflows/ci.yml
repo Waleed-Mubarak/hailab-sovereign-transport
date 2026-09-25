@@ -24,9 +24,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Debug Python Paths and Run Tests
+      - name: Run Sovereign Test Runner
         env:
           PYTHONPATH: .
         run: |
-          python -c "import sys, os; print('Current Dir:', os.getcwd()); print('Contents:', os.listdir('.')); print('Sys Path:', sys.path)"
-          python -m pytest -v
+          python run_tests.py
