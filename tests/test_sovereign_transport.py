@@ -4,16 +4,13 @@ import hmac
 import hashlib
 import unittest
 
-# خوارزمية البحث التلقائي الصاعد لتحديد جذر المشروع وتخطي تداخل مسارات السيرفر
-current = os.path.abspath(os.path.dirname(__file__))
-while current != os.path.dirname(current):
-    if os.path.exists(os.path.join(current, "layer2_transport")):
-        if current not in sys.path:
-            sys.path.insert(0, current)
-        break
-    current = os.path.dirname(current)
+# ضبط وتثبيت مسار الجذر في قمة الملف قبل أي استيراد لتجنب مشاكل مسارات الـ CI
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, '..'))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
-# الاستيراد المباشر والصحيح بعد ضبط المسار ديناميكياً
+# الاستيراد المباشر والصحيح بعد ضمان ضبط المسار
 from layer2_transport.session_controller import SovereignSessionController
 from layer2_transport.security_kernel import SovereignSecurityKernel
 
