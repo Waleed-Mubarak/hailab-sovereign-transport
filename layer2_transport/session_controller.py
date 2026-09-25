@@ -1,7 +1,7 @@
 import hmac
 import hashlib
 
-class SovereignSessionManager:
+class SovereignSessionController:
     """إدارة الجلسات للطبقة الثانية بالنمط المحصّن والنطاق المغلق."""
     def __init__(self):
         _sessions = {}
