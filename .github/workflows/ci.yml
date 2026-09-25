@@ -1,6 +1,10 @@
 name: Sovereign Transport CI
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   build-and-test:
@@ -20,6 +24,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Run Tests
+      - name: Run Tests via Python Module
         run: |
-          python -m pytest -v
+          python -m pytest
