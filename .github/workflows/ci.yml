@@ -28,4 +28,4 @@ jobs:
         env:
           PYTHONPATH: .
         run: |
-          pytest
+          python -m pytest
