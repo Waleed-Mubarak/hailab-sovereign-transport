@@ -3,16 +3,28 @@ import os
 import hmac
 import hashlib
 import unittest
+import importlib
 
-# إضافة مسار الجذر الحالي والأب لضمان رؤية المجلدات الرقمية بوضوح
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-sys.path.insert(0, parent_dir)
-sys.path.insert(0, current_dir)
+# إضافة جذر المشروع بشكل مطلق وثابت بناءً على مسار العمل الحالي
+root_path = os.getcwd()
+if root_path not in sys.path:
+    sys.path.insert(0, root_path)
 
-# الاستيراد المباشر القياسي بعد ضبط المسارات بدقة
-from layer2_transport.session_controller import SovereignSessionController
-from layer2_transport.security_kernel import SovereignSecurityKernel
+# الاستيراد الديناميكي الآمن عبر importlib لتجاوز أي مشاكل في مسارات الـ CI
+try:
+    session_controller_module = importlib.import_module("layer2_transport.session_controller")
+    security_kernel_module = importlib.import_module("layer2_transport.security_kernel")
+    
+    SovereignSessionController = session_controller_module.SovereignSessionController
+    SovereignSecurityKernel = security_kernel_module.SovereignSecurityKernel
+except ImportError as e:
+    # محاولة بديلة إذا كان المسار بحاجة لعدA تعديل إضافي
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+    session_controller_module = importlib.import_module("layer2_transport.session_controller")
+    security_kernel_module = importlib.import_module("layer2_transport.security_kernel")
+    
+    SovereignSessionController = session_controller_module.SovereignSessionController
+    SovereignSecurityKernel = security_kernel_module.SovereignSecurityKernel
 
 class TestSovereignTransportEnterprise(unittest.TestCase):
     """اختبار التكامل المؤسسي الشامل: الجلسات، التوقيع، نواة الأمان، ومنع إعادة التشغيل."""
