@@ -24,8 +24,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Run Tests with PYTHONPATH
+      - name: Debug Python Paths and Run Tests
         env:
           PYTHONPATH: .
         run: |
-          python -m pytest
+          python -c "import sys, os; print('Current Dir:', os.getcwd()); print('Contents:', os.listdir('.')); print('Sys Path:', sys.path)"
+          python -m pytest -v
