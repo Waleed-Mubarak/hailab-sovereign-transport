@@ -3,7 +3,7 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع التخزين والتوجيه ومتطلبات L5-C3."""
+    """محاكي نقل DTN للطبقة الخامسة مع التخزين والتوجيه وتفريغ الطابور ومتطلبات L5-C3."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -30,7 +30,6 @@ class SovereignDTNTransportSimulator:
             return bundle
 
         def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
-            """تخزين وإعادة توجيه الحزمة وتوليد المعرف والتحقق الأمني."""
             bundle_id = f"bundle-{hashlib.sha256(str(payload).encode()).hexdigest()[:8]}"
             destination = destination_node or "default-dest"
             secret = session_key or _state["master_secret"]
@@ -48,6 +47,12 @@ class SovereignDTNTransportSimulator:
                 "hmac": bundle_hmac
             }
             return True
+
+        def flush_queue(session_key: bytes = None, **kwargs) -> list:
+            """تفريغ قائمة الانتظار وإرجاع الحزم المخزنة."""
+            transmitted = list(_bundles.values())
+            _bundles.clear()
+            return transmitted
 
         def verify_and_route_bundle(bundle: dict) -> bool:
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
@@ -84,6 +89,7 @@ class SovereignDTNTransportSimulator:
         self._engine = {
             "create_bundle": create_bundle,
             "store_and_forward_packet": store_and_forward_packet,
+            "flush_queue": flush_queue,
             "verify_and_route_bundle": verify_and_route_bundle,
             "check_duress_trigger": check_duress_trigger,
             "get_link_status": lambda: _state["link_status"],
@@ -103,6 +109,9 @@ class SovereignDTNTransportSimulator:
 
     def store_and_forward_packet(self, payload, destination_node: str = None, session_key: bytes = None, **kwargs):
         return self._engine["store_and_forward_packet"](payload, destination_node=destination_node, session_key=session_key, **kwargs)
+
+    def flush_queue(self, session_key: bytes = None, **kwargs):
+        return self._engine["flush_queue"](session_key=session_key, **kwargs)
 
     def verify_and_route_bundle(self, bundle: dict):
         return self._engine["verify_and_route_bundle"](bundle)
