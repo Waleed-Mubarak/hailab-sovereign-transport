@@ -15,13 +15,13 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install dependencies
+      - name: Install Pytest
         run: |
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Run Tests with PYTHONPATH
+      - name: Run Tests with Explicit Path
         env:
-          PYTHONPATH: .
+          PYTHONPATH: ${{ github.workspace }}
         run: |
           pytest -v
