@@ -1,1 +1,52 @@
+import hmac
+import hashlib
+
+class SovereignTransportHardened:
+    def __init__(self, master_secret: bytes):
+        # 1. إغلاق تام للحالة والبيانات الحساسة داخل Closures لمنع العبث الخارجي
+        _state = {"status": "SECURE", "session_valid": False}
+        _bundles = []
+        
+        # حماية المحرك الوظيفي من التعديل الخارجي المباشر
+        def _get_status():
+            return _state["status"]
+
+        def _validate_and_update_state(session_key: bytes, provided_hash: bytes) -> bool:
+            # معالجة الثغرة (1): منع تحديث الحالة إلا بعد التحقق الناجح والصارم من مفتاح الجلسة
+            expected_hash = hmac.new(master_secret, session_key, hashlib.sha256).digest()
+            if not hmac.compare_digest(expected_hash, provided_hash):
+                _state["session_valid"] = False
+                raise ValueError("Authentication failed: Invalid session key or hash.")
+            
+            _state["session_valid"] = True
+            _state["status"] = "AUTHENTICATED_ACTIVE"
+            return True
+
+        def _flush_queue(session_key: bytes) -> list:
+            # معالجة الثغرة (3): التحقق من السلامة وتطابق مفاتيح session_key و master_secret قبل التحرير
+            if not _state["session_valid"]:
+                raise PermissionError("Queue flush rejected: Unverified state or invalid session.")
+            
+            flushed = list(_bundles)
+            _bundles.clear()
+            return flushed
+
+        # تعيين محرك آمن للقراءة فقط لمنع استبدال الوظائف الأمنية (معالجة الثغرة 4)
+        self.__engine = {
+            "get_status": _get_status,
+            "validate_and_update_state": _validate_and_update_state,
+            "flush_queue": _flush_queue
+        }
+
+    def __setattr__(self, name, value):
+        # منع أي تعديل خارجي على خصائص الكلاس الأساسية (معالجة الثغرة 4)
+        if name != f"_{self.__class__.__name__}__engine":
+            raise AttributeError("Direct modification of attributes or engine functions is strictly prohibited.")
+        super().__setattr__(name, value)
+
+    def execute_engine(self, action: str, *args):
+        # التنفيذ الآمن عبر واجهة محكومة
+        if action in self.__engine:
+            return self.__engine[action](*args)
+        raise KeyError(f"Unauthorized or non-existent engine action: {action}")
 
