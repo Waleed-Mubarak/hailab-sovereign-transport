@@ -1,6 +1,7 @@
 import unittest
 import sys
 import os
+import hashlib
 
 # إضافة جذر المشروع إلى مسار بايثون لضمان التوافق مع الـ CI
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
@@ -29,6 +30,19 @@ class TestSovereignDTNTransportSimulator(unittest.TestCase):
         self.assertEqual(len(transmitted), 1)
         self.assertEqual(transmitted[0]["destination"], "node-beta")
 
+    def test_duress_trigger_security(self):
+        """التحقق من أن فحص هريس الإكراه آمن وصحيح ولا يفعل خطأً."""
+        simulator = SovereignDTNTransportSimulator(node_id="node-alpha")
+        
+        secret_pass = "emergency_code_999"
+        correct_hash = hashlib.sha256(secret_pass.encode()).digest()
+        
+        # اختبار كلمة المرور الصحيحة
+        self.assertTrue(simulator.check_duress_trigger(secret_pass, correct_hash))
+        
+        # اختبار كلمة مرور خاطئة (يجب ألا تفعل النظام أبداً)
+        self.assertFalse(simulator.check_duress_trigger("wrong_code", correct_hash))
+
     def test_security_attribute_protection(self):
         """التحقق من أن حراسة السمات تمنع التعديل المباشر تماماً."""
         simulator = SovereignDTNTransportSimulator(node_id="node-alpha")
@@ -37,4 +51,3 @@ class TestSovereignDTNTransportSimulator(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
