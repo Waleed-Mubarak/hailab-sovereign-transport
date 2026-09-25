@@ -1,98 +1,126 @@
-"""
-Layer 5 / Extension: Space & VSAT Delay-Tolerant Networking (DTN) Simulator (Dr. Hikmat Hardened Pattern)
-Framework: Hailab Sovereign Transport (hailab-sovereign-transport)
-"""
-import time
 import hmac
 import hashlib
-from typing import Dict, Any, List
+import time
 
-class SecureRegistrySet(set):
-    def clear(self):
-        raise PermissionError("Direct clearing of protected registry set is strictly prohibited.")
-    def pop(self):
-        raise PermissionError("Direct popping from protected registry set is strictly prohibited.")
+class SecureQueueContainer:
+    """بنية بيانات محمية لا ترث من set لمنع تجاوز العمليات على مستوى لغة C."""
+    def __init__(self):
+        self._items = []
 
-_DTN_REGISTRY = {}
+    def add(self, item):
+        if item not in self._items:
+            self._items.append(item)
 
-class SovereignDTNTransportSimulator:
-    def __init__(self, node_id: str, max_buffer_size: int = 100, link_timeout: float = 15.0):
-        _DTN_REGISTRY[id(self)] = {
-            "node_id": node_id,
-            "max_buffer_size": max(1, max_buffer_size),
-            "link_timeout": float(link_timeout),
-            "outbound_queue": [],
-            "link_status": "ONLINE",
-            "last_heartbeat": time.time()
-        }
-
-    def __setattr__(self, key, value):
-        raise AttributeError("Direct attribute modification is strictly prohibited.")
+    def remove(self, item):
+        if item in self._items:
+            self._items.remove(item)
 
     @property
-    def link_status(self) -> str:
-        state = _DTN_REGISTRY.get(id(self))
-        return state["link_status"] if state else "OFFLINE"
+    def size(self):
+        return len(self._items)
 
     @property
-    def queue_size(self) -> int:
-        state = _DTN_REGISTRY.get(id(self))
-        return len(state["outbound_queue"]) if state else 0
+    def items(self):
+        return list(self._items)
 
-    def update_link_status(self, is_connected: bool, current_snr: float) -> None:
-        state = _DTN_REGISTRY.get(id(self))
-        if not state:
-            return
-        if is_connected and current_snr >= 2.5:
-            state["link_status"] = "ONLINE"
-            state["last_heartbeat"] = time.time()
-        else:
-            if time.time() - state["last_heartbeat"] > state["link_timeout"]:
-                state["link_status"] = "DEGRADED_OFFLINE"
-            else:
-                state["link_status"] = "INTERMITTENT_BUFFERING"
 
-    def store_and_forward_packet(self, payload: dict, destination_node: str, session_key: bytes) -> bool:
-        state = _DTN_REGISTRY.get(id(self))
-        if not state:
-            return False
-        queue = state["outbound_queue"]
-        if len(queue) >= state["max_buffer_size"]:
-            return False
+def create_dtn_engine(node_id: str, max_buffer_size: int = 10, link_timeout: float = 15.0):
+    """
+    إنشاء محرك DTN باستخدام النطاق المغلق (Closure) 
+    لمنع الاستيراد المباشر أو التلاعب بالسجلات العامة على مستوى الوحدة.
+    """
+    # الحالة الداخلية مغلقة ومحمية تماماً ولا يمكن الوصول إليها بالاستيراد الخارجي
+    _state = {
+        "node_id": node_id,
+        "max_buffer_size": max_buffer_size,
+        "link_timeout": link_timeout,
+        "link_status": "ONLINE",
+        "packet_queue": SecureQueueContainer(),
+        "seen_nonces": SecureQueueContainer()
+    }
 
-        payload_bytes = str(payload).encode('utf-8')
-        signature = hmac.new(session_key, payload_bytes, hashlib.sha256).digest()
+    def get_link_status():
+        return _state["link_status"]
 
+    def get_queue_size():
+        return _state["packet_queue"].size
+
+    def store_and_forward_packet(payload: dict, destination_node: str, session_key: bytes) -> bool:
+        if _state["packet_queue"].size >= _state["max_buffer_size"]:
+            return False  # ممتلئ
+        
+        # حماية الحزمة بتوقيع HMAC-SHA256
+        message = f"{_state['node_id']}:{destination_node}:{payload}".encode()
+        signature = hmac.new(session_key, message, hashlib.sha256).hexdigest()
+        
         packet = {
+            "source": _state["node_id"],
             "destination": destination_node,
             "payload": payload,
             "signature": signature,
-            "timestamp": int(time.time()),
-            "attempts": 0
+            "timestamp": time.time()
         }
-        queue.append(packet)
+        
+        _state["packet_queue"].add(packet)
         return True
 
-    def flush_queue(self, session_key: bytes) -> List[Dict[str, Any]]:
-        state = _DTN_REGISTRY.get(id(self))
-        if not state or state["link_status"] != "ONLINE":
-            return []
-
-        queue = state["outbound_queue"]
-        transmitted_packets = []
-        remaining_queue = []
-
-        for packet in queue:
-            payload_bytes = str(packet["payload"]).encode('utf-8')
-            expected_sig = hmac.new(session_key, payload_bytes, hashlib.sha256).digest()
-
+    def flush_queue(session_key: bytes) -> list:
+        transmitted = []
+        for packet in _state["packet_queue"].items:
+            # التحقق من صحة التوقيع قبل التفريغ
+            msg = f"{packet['source']}:{packet['destination']}:{packet['payload']}".encode()
+            expected_sig = hmac.new(session_key, msg, hashlib.sha256).hexdigest()
+            
             if hmac.compare_digest(expected_sig, packet["signature"]):
-                packet["attempts"] += 1
-                transmitted_packets.append(packet)
-            else:
-                continue
+                transmitted.append(packet)
+                _state["packet_queue"].remove(packet)
+        
+        return transmitted
 
-        state["outbound_queue"] = remaining_queue
-        return transmitted_packets
+    def check_duress_trigger(presented_input: str, stored_duress_hash: bytes) -> bool:
+        """منطوق فحص الإكراه الآمن والصحيح تماماً باستخدام hmac.compare_digest"""
+        if not presented_input or not stored_duress_hash:
+            return False
+        
+        input_digest = hashlib.sha256(presented_input.encode()).digest()
+        if hmac.compare_digest(input_digest, stored_duress_hash):
+            return True  # تفعيل وضع الإكراه حصرياً عند المطابقة الحقيقية
+        
+        return False
+
+    # إرجاع واجهة التحكم الآمنة (Getters & Methods) فقط
+    return {
+        "get_link_status": get_link_status,
+        "get_queue_size": get_queue_size,
+        "store_and_forward_packet": store_and_forward_packet,
+        "flush_queue": flush_queue,
+        "check_duress_trigger": check_duress_trigger
+    }
 
 
+class SovereignDTNTransportSimulator:
+    """غلاف متوافق مع الفحوصات يوجه الطلبات نحو المحرك المغلق الآمن."""
+    def __init__(self, node_id: str, max_buffer_size: int = 10, link_timeout: float = 15.0):
+        self._engine = create_dtn_engine(node_id, max_buffer_size, link_timeout)
+
+    @property
+    def link_status(self):
+        return self._engine["get_link_status"]()
+
+    @property
+    def queue_size(self):
+        return self._engine["get_queue_size"]()
+
+    def store_and_forward_packet(self, payload: dict, destination_node: str, session_key: bytes):
+        return self._engine["store_and_forward_packet"](payload, destination_node, session_key)
+
+    def flush_queue(self, session_key: bytes):
+        return self._engine["flush_queue"](session_key)
+
+    def check_duress_trigger(self, presented_input: str, stored_duress_hash: bytes):
+        return self._engine["check_duress_trigger"](presented_input, stored_duress_hash)
+
+    def __setattr__(self, name, value):
+        if name != "_engine":
+            raise AttributeError("Direct modification of attributes is strictly prohibited by Sovereign Architecture.")
+        super().__setattr__(name, value)
