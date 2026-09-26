@@ -2,207 +2,244 @@ import hmac
 import hashlib
 import time
 import json
+import threading
 
 # ==========================================
-# الحاويات الأمنية (تجنب الوراثة المباشرة من set)
+# الحاويات الأمنية المحصنة ضد تجاوز لغة C
 # ==========================================
 
 class SecureSetContainer:
-    """حاوية بيانات آمنة لا ترث من set لمنع تجاوز العمليات على مستوى لغة C."""
+    """حاوية بيانات آمنة لا ترث من set لمنع تجاوز العمليات."""
     def __init__(self):
         self._items = []
+        self._lock = threading.Lock()
 
     def add(self, item):
-        if item not in self._items:
-            self._items.append(item)
+        with self._lock:
+            if item not in self._items:
+                self._items.append(item)
 
     def discard(self, item):
-        if item in self._items:
-            self._items.remove(item)
+        with self._lock:
+            if item in self._items:
+                self._items.remove(item)
 
     def __contains__(self, item):
-        return item in self._items
+        with self._lock:
+            return item in self._items
 
 
 class SecureNodeSet:
-    """حاوية آمنة لعقد الشبكة لا ترث من set لمنع تجاوز عمليات الحذف."""
+    """حاوية آمنة لعقد الشبكة مع دعم التزامن."""
     def __init__(self):
         self._nodes = []
+        self._lock = threading.Lock()
 
     def add(self, node_id: str):
-        if node_id not in self._nodes:
-            self._nodes.append(node_id)
+        with self._lock:
+            if node_id not in self._nodes:
+                self._nodes.append(node_id)
 
     def discard(self, node_id: str):
-        if node_id in self._nodes:
-            self._nodes.remove(node_id)
+        with self._lock:
+            if node_id in self._nodes:
+                self._nodes.remove(node_id)
 
     def __contains__(self, node_id: str):
-        return node_id in self._nodes
+        with self._lock:
+            return node_id in self._nodes
 
     @property
     def items(self):
-        return list(self._nodes)
+        with self._lock:
+            return list(self._nodes)
 
 
 # ==========================================
-# الطبقة الأولى: المصادقة وقناة الاتصال (Layer 1)
+# النواة المركزية الموحدة للمشروع (Elite Version)
 # ==========================================
 
-def create_auth_channel(node_id: str, master_secret: bytes):
-    """إنشاء قناة مصادقة باستخدام النطاق المغلق لمنع الوصول المباشر للسجلات."""
-    _state = {
-        "node_id": node_id,
-        "master_secret": master_secret,
-        "seen_nonces": SecureSetContainer()
-    }
-
-    def authenticate_payload(payload: str, signature: bytes) -> bool:
-        expected_sig = hmac.new(_state["master_secret"], payload.encode(), hashlib.sha256).digest()
-        return hmac.compare_digest(expected_sig, signature)
-
-    def verify_nonce(nonce: str) -> bool:
-        if nonce in _state["seen_nonces"]:
-            return False
-        _state["seen_nonces"].add(nonce)
-        return True
-
-    return {
-        "authenticate_payload": authenticate_payload,
-        "verify_nonce": verify_nonce
-    }
-
-
-# ==========================================
-# الطبقة الثانية: إدارة الجلسات (Layer 2)
-# ==========================================
-
-class SovereignSessionController:
-    """إدارة الجلسات للطبقة الثانية بالمعيار المؤسسي المحصّن."""
-    def __init__(self, node_id: str = None, session_encryption_key: bytes = None):
-        _sessions = {}
+class SovereignTransportKernel:
+    """
+    النواة المركزية الموحدة لجميع طبقات الاتصال السيادي،
+    مدعومة بسجل تدقيق مشفر (Hash Chain)، وحالة إغلاق فوري (Fail-Closed)، وأقفال تزامن.
+    """
+    def __init__(self, node_id: str, master_secret: bytes):
+        self._lock = threading.Lock()
+        
+        # الحالة الداخلية المعزولة
         _state = {
             "node_id": node_id,
-            "session_encryption_key": session_encryption_key or b"default_secure_key_32bytes_len!!"
+            "master_secret": master_secret,
+            "sessions": {},
+            "trusted_nodes": SecureNodeSet(),
+            "duress_hashes": [],
+            "bundles": {},
+            "audit_chain": [],
+            "last_audit_hash": "0" * 64,
+            "system_locked_down": False
         }
 
-        def create_session(session_id: str, secret_key: bytes) -> bool:
-            if session_id in _sessions:
-                return False
-            _sessions[session_id] = {
-                "secret_key": secret_key,
-                "active": True,
-                "last_counter": 0,
-                "created_at": time.time()
+        # --- دالة إضافة سجل تدقيق مشفر (Hash Chain Audit Trail) ---
+        def record_audit_event(event_type: str, details: dict):
+            timestamp = time.time()
+            event_data = json.dumps({"type": event_type, "details": details, "time": timestamp}, sort_keys=True)
+            prev_hash = _state["last_audit_hash"]
+            
+            # ربط السجل الجديد بتجزئة السجل السابق لمنع العبث
+            combined_data = prev_hash + event_data
+            current_hash = hashlib.sha256(combined_data.encode()).hexdigest()
+            
+            audit_entry = {
+                "timestamp": timestamp,
+                "event_type": event_type,
+                "prev_hash": prev_hash,
+                "current_hash": current_hash
             }
+            _state["audit_chain"].append(audit_entry)
+            _state["last_audit_hash"] = current_hash
+
+        # --- الطبقة الأولى: المصادقة وقناة الاتصال ---
+        def authenticate_payload(payload: str, signature: bytes) -> bool:
+            if _state["system_locked_down"]:
+                return False
+            expected_sig = hmac.new(_state["master_secret"], payload.encode(), hashlib.sha256).digest()
+            is_valid = hmac.compare_digest(expected_sig, signature)
+            if not is_valid:
+                record_audit_event("AUTH_FAILURE", {"payload_snippet": payload[:10]})
+            return is_valid
+
+        # --- الطبقة الثانية: إدارة الجلسات الحصينة مع Fail-Closed ---
+        def create_session(session_id: str, secret_key: bytes) -> bool:
+            with self._lock:
+                if _state["system_locked_down"] or session_id in _state["sessions"]:
+                    return False
+                _state["sessions"][session_id] = {
+                    "secret_key": secret_key,
+                    "active": True,
+                    "locked_down": False,
+                    "last_counter": 0,
+                    "created_at": time.time()
+                }
+                record_audit_event("SESSION_CREATED", {"session_id": session_id})
+                return True
+
+        def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None) -> bool:
+            with self._lock:
+                if _state["system_locked_down"] or not session_token or not incoming_state or not incoming_signature:
+                    return False
+                
+                target_session = None
+                target_s_id = None
+                for s_id, s_info in _state["sessions"].items():
+                    if not s_info["active"] or s_info["locked_down"]:
+                        continue
+                    expected_token = hmac.new(s_info["secret_key"], s_id.encode(), hashlib.sha256).digest()
+                    if hmac.compare_digest(expected_token, session_token):
+                        target_session = s_info
+                        target_s_id = s_id
+                        break
+                
+                if target_session is None:
+                    return False
+                
+                # فحص العداد ضد هجمات إعادة التشغيل ودخول حالة الإغلاق (Fail-Closed)
+                incoming_counter = incoming_state.get("counter", 0)
+                if incoming_counter <= target_session["last_counter"]:
+                    target_session["locked_down"] = True
+                    _state["system_locked_down"] = True
+                    record_audit_event("REPLAY_ATTACK_DETECTED_LOCKDOWN", {"session_id": target_s_id})
+                    return False
+                
+                # التحقق من التوقيع
+                payload = str(incoming_state).encode('utf-8')
+                expected_signature = hmac.new(target_session["secret_key"], payload, hashlib.sha256).digest()
+                if not hmac.compare_digest(expected_signature, incoming_signature):
+                    record_audit_event("INVALID_SIGNATURE", {"session_id": target_s_id})
+                    return False
+                
+                target_session["last_counter"] = incoming_counter
+                target_session["initial_state"] = incoming_state
+                return True
+
+        # --- الطبقة الثالثة: إدارة الإكراه ---
+        def register_duress_hash(duress_hash: bytes):
+            with self._lock:
+                if duress_hash not in _state["duress_hashes"]:
+                    _state["duress_hashes"].append(duress_hash)
+
+        def check_duress_trigger(presented_input: str) -> bool:
+            if not presented_input or _state["system_locked_down"]:
+                return False
+            input_digest = hashlib.sha256(presented_input.encode()).digest()
+            for d_hash in _state["duress_hashes"]:
+                if hmac.compare_digest(input_digest, d_hash):
+                    record_audit_event("DURESS_TRIGGER_ACTIVATED", {})
+                    return True
+            return False
+
+        # --- الطبقة الرابعة: التوجيه الآمن ---
+        def register_node(node_id: str) -> bool:
+            _state["trusted_nodes"].add(node_id)
+            record_audit_event("NODE_REGISTERED", {"node_id": node_id})
             return True
 
-        def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None, **kwargs) -> bool:
-            if session_token is None or incoming_state is None or incoming_signature is None:
+        def route_message(source: str, destination: str, payload: dict) -> bool:
+            if _state["system_locked_down"]:
                 return False
-                
-            target_session = None
-            for s_id, s_info in _sessions.items():
-                if not s_info["active"]:
-                    continue
-                expected_token = hmac.new(s_info["secret_key"], s_id.encode(), hashlib.sha256).digest()
-                if hmac.compare_digest(expected_token, session_token):
-                    target_session = s_info
-                    break
-            
-            if target_session is None:
+            if source not in _state["trusted_nodes"] or destination not in _state["trusted_nodes"]:
+                record_audit_event("ROUTING_REJECTED_UNTRUSTED_NODE", {"src": source, "dst": destination})
                 return False
-                
-            incoming_counter = incoming_state.get("counter", 0)
-            if incoming_counter <= target_session["last_counter"]:
-                return False
-                
-            key = target_session["secret_key"]
-            payload = str(incoming_state).encode('utf-8')
-            expected_signature = hmac.new(key, payload, hashlib.sha256).digest()
-            
-            if not hmac.compare_digest(expected_signature, incoming_signature):
-                return False
-            
-            target_session["last_counter"] = incoming_counter
-            target_session["initial_state"] = incoming_state
             return True
 
+        # --- الطبقة الخامسة: محاكي نقل DTN مع معيار L5-C3 ---
+        def create_bundle(bundle_id: str, destination: str, payload: dict) -> dict:
+            metadata = {"bundle_id": bundle_id, "destination": destination}
+            canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
+            bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
+            
+            bundle = {"bundle_id": bundle_id, "destination": destination, "metadata": metadata, "payload": payload, "hmac": bundle_hmac}
+            with self._lock:
+                _state["bundles"][bundle_id] = bundle
+            return bundle
+
+        def verify_and_route_bundle(bundle: dict) -> bool:
+            if _state["system_locked_down"] or not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
+                return False
+            canonical_data = json.dumps({"metadata": bundle.get("metadata"), "payload": bundle.get("payload", {})}, sort_keys=True).encode()
+            expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
+            return hmac.compare_digest(expected_hmac, bundle.get("hmac"))
+
+        # ربط محرك التنفيذ الآمن
         self._engine = {
+            "authenticate_payload": authenticate_payload,
             "create_session": create_session,
-            "validate_and_update_state": validate_and_update_state
+            "validate_and_update_state": validate_and_update_state,
+            "register_duress_hash": register_duress_hash,
+            "check_duress_trigger": check_duress_trigger,
+            "register_node": register_node,
+            "route_message": route_message,
+            "create_bundle": create_bundle,
+            "verify_and_route_bundle": verify_and_route_bundle,
+            "get_audit_chain": lambda: list(_state["audit_chain"]),
+            "is_locked_down": lambda: _state["system_locked_down"]
         }
+
+    # واجهات الاستدعاء العامة المعتمدة
+    def authenticate_payload(self, payload: str, signature: bytes):
+        return self._engine["authenticate_payload"](payload, signature)
 
     def create_session(self, session_id: str, secret_key: bytes):
         return self._engine["create_session"](session_id, secret_key)
 
-    def validate_and_update_state(self, session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None, **kwargs):
-        return self._engine["validate_and_update_state"](session_token=session_token, incoming_state=incoming_state, incoming_signature=incoming_signature, **kwargs)
+    def validate_and_update_state(self, session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None):
+        return self._engine["validate_and_update_state"](session_token, incoming_state, incoming_signature)
 
-    def __setattr__(self, name, value):
-        if name != "_engine":
-            raise AttributeError("Direct modification of attributes is strictly prohibited.")
-        super().__setattr__(name, value)
+    def register_duress_hash(self, duress_hash: bytes):
+        return self._engine["register_duress_hash"](duress_hash)
 
-
-# ==========================================
-# الطبقة الثالثة: إدارة الإكراه (Layer 3)
-# ==========================================
-
-class SovereignDuressHandler:
-    """معالج الإكراه الأمني باستخدام النطاق المغلق والتجزئة الموثوقة."""
-    def __init__(self):
-        _state = {"stored_duress_hashes": []}
-
-        def register_duress_hash(duress_hash: bytes):
-            if duress_hash not in _state["stored_duress_hashes"]:
-                _state["stored_duress_hashes"].append(duress_hash)
-
-        def check_duress_trigger(presented_input: str, stored_duress_hash: bytes) -> bool:
-            if not presented_input or not stored_duress_hash:
-                return False
-            input_digest = hashlib.sha256(presented_input.encode()).digest()
-            return hmac.compare_digest(input_digest, stored_duress_hash)
-
-        self._engine = {
-            "register_duress_hash": register_duress_hash,
-            "check_duress_trigger": check_duress_trigger
-        }
-
-    def check_duress_trigger(self, presented_input: str, stored_duress_hash: bytes):
-        return self._engine["check_duress_trigger"](presented_input, stored_duress_hash)
-
-    def __setattr__(self, name, value):
-        if name != "_engine":
-            raise AttributeError("Direct modification of attributes is strictly prohibited.")
-        super().__setattr__(name, value)
-
-
-# ==========================================
-# الطبقة الرابعة: التوجيه الآمن (Layer 4)
-# ==========================================
-
-class SovereignRouter:
-    """محرك التوجيه الآمن ومنع التلاعب بالعقد."""
-    def __init__(self, gateway_id: str):
-        _state = {
-            "gateway_id": gateway_id,
-            "trusted_nodes": SecureNodeSet()
-        }
-
-        def register_node(node_id: str) -> bool:
-            _state["trusted_nodes"].add(node_id)
-            return True
-
-        def route_message(source: str, destination: str, payload: dict) -> bool:
-            if source not in _state["trusted_nodes"] or destination not in _state["trusted_nodes"]:
-                return False
-            return True
-
-        self._engine = {
-            "register_node": register_node,
-            "route_message": route_message
-        }
+    def check_duress_trigger(self, presented_input: str):
+        return self._engine["check_duress_trigger"](presented_input)
 
     def register_node(self, node_id: str):
         return self._engine["register_node"](node_id)
@@ -210,81 +247,21 @@ class SovereignRouter:
     def route_message(self, source: str, destination: str, payload: dict):
         return self._engine["route_message"](source, destination, payload)
 
-    def __setattr__(self, name, value):
-        if name != "_engine":
-            raise AttributeError("Direct modification of attributes is strictly prohibited.")
-        super().__setattr__(name, value)
-
-
-# ==========================================
-# الطبقة الخامسة: محاكي نقل DTN (Layer 5)
-# ==========================================
-
-class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع استيفاء معيار مصادقة الحزم L5-C3."""
-    def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
-        _bundles = {}
-        _state = {
-            "node_id": node_id,
-            "master_secret": master_secret or b"default_master_secret_32bytes_len!!",
-            "link_status": "ONLINE"
-        }
-
-        def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None) -> dict:
-            metadata = {
-                "bundle_id": bundle_id,
-                "destination": destination,
-                "protection_fields": protection_fields or {}
-            }
-            canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
-            
-            bundle = {
-                "bundle_id": bundle_id,
-                "destination": destination,
-                "metadata": metadata,
-                "payload": payload,
-                "hmac": bundle_hmac
-            }
-            _bundles[bundle_id] = bundle
-            return bundle
-
-        def verify_and_route_bundle(bundle: dict) -> bool:
-            if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
-                return False
-                
-            metadata = bundle.get("metadata")
-            payload = bundle.get("payload", {})
-            provided_hmac = bundle.get("hmac")
-            
-            canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
-            
-            return hmac.compare_digest(expected_hmac, provided_hmac)
-
-        self._engine = {
-            "create_bundle": create_bundle,
-            "verify_and_route_bundle": verify_and_route_bundle,
-            "get_link_status": lambda: _state["link_status"],
-            "get_queue_size": lambda: len(_bundles)
-        }
-
-    @property
-    def link_status(self):
-        return self._engine["get_link_status"]()
-
-    @property
-    def queue_size(self):
-        return self._engine["get_queue_size"]()
-
-    def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None):
-        return self._engine["create_bundle"](bundle_id, destination, payload, protection_fields)
+    def create_bundle(self, bundle_id: str, destination: str, payload: dict):
+        return self._engine["create_bundle"](bundle_id, destination, payload)
 
     def verify_and_route_bundle(self, bundle: dict):
         return self._engine["verify_and_route_bundle"](bundle)
 
+    @property
+    def audit_trail(self):
+        return self._engine["get_audit_chain"]()
+
+    @property
+    def is_locked_down(self):
+        return self._engine["is_locked_down"]()
+
     def __setattr__(self, name, value):
         if name != "_engine":
             raise AttributeError("Direct modification of attributes is strictly prohibited.")
         super().__setattr__(name, value)
-
