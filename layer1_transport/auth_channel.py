@@ -40,3 +40,11 @@ def create_auth_channel(node_id: str, master_secret: bytes):
         "authenticate_payload": authenticate_payload,
         "verify_nonce": verify_nonce
     }
+
+
+def check_duress_trigger(presented_input: str, stored_duress_hash: bytes) -> bool:
+    """التحقق الآمن من رمز الإكراه باستخدام التجزئة والمقارنة الموثوقة لمنع التجاوز."""
+    input_digest = hashlib.sha256(presented_input.encode()).digest()
+    if hmac.compare_digest(input_digest, stored_duress_hash):
+        return True
+    return False
