@@ -1,1 +1,37 @@
+# Threat Model, TCB Statement, and Architectural Assurance
+**Project:** Hailab Sovereign Transport  
+**Status:** Final Compliance Architecture Document  
+**Reviewer:** Dr. Hikmat Meryemov  
+
+---
+
+## 1. Threat Model & TCB (Trusted Computing Base) Statement
+To distinguish between functional health, operational resilience, and absolute hardware-enforced security, the Sovereign Transport Kernel classifies its trust boundaries into three distinct tiers:
+
+* **Software-Proven Properties:** 
+  * Enforced via formal cryptographic invariants, SHA-256 hash chains, and deterministic state transition verification.
+  * Ensures that any state mutation, replay attempt, or message sequence violation is caught mathematically by the kernel logic.
+* **Hardware-Supported Properties:** 
+  * Relies on host isolation, containerization boundaries, and memory protection primitives to safeguard runtime execution from standard user-space interference.
+* **Hardware-Enforced Properties:** 
+  * Relies on underlying hardware roots of trust (such as TPM or secure enclaves, where available) to enforce cryptographic key storage and immutable boot/execution verification, preventing unauthorized kernel replacement or bypass.
+
+---
+
+## 2. Audit Trail Integrity & Independent Chain Reconstruction
+The audit subsystem utilizes a strict cryptographic hash chaining mechanism (`SHA-256`) to guarantee log immutability:
+* **Tamper Detection:** Every audit entry contains the cryptographic hash of the preceding entry (`prev_hash`), forming an unbroken chain[span_4](start_span)[span_4](end_span).
+* **Independent Reconstruction:** In the event of log inspection or forensic analysis, the chain can be independently recomputed and verified from the genesis block. Any deletion, reordering, or modification of historical events invalidates all subsequent hashes, triggering an immediate security flag[span_5](start_span)[span_5](end_span).
+
+---
+
+## 3. Fail-Closed & Permanent Lockdown Behavior
+* **Strict State Enforcement:** Upon detecting any integrity violation, signature mismatch, or replay attack, the kernel immediately transitions into an irreversible **Fail-Closed (Lockdown)** state[span_6](start_span)[span_6](end_span).
+* **No Revival via Valid Credentials:** Once the kernel enters the lockdown state, subsequent valid credentials or tokens **cannot** restore or bypass the execution state[span_7](start_span)[span_7](end_span). Complete administrative re-initialization or secure hardware reset is required to clear the fault, ensuring zero window for unauthorized execution recovery.
+
+---
+
+## 4. Concurrency Safety & DTN Queue Controls
+* **Thread-Safety Primitives:** Critical sections involving session creation, state validation, and message routing are guarded by strict synchronization primitives (`threading.Lock`) to prevent race conditions[span_8](start_span)[span_8](end_span).
+* **Queue Integrity:** Delegation, resetting, and synchronized queue operations are engineered to guarantee that concurrent multi-threaded execution never produces an inconsistent state or leaks unauthorized data packets[span_9](start_span)[span_9](end_span).
 
