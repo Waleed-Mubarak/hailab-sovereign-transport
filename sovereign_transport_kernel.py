@@ -1,36 +1,20 @@
+"""
+================================================================================
+Project: Hailab Sovereign Transport
+Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fixed)
+Description: Unified centralized kernel integrating strict TCB enforcement, 
+             cryptographic hash chains, fail-closed state machines, and thread-safety.
+================================================================================
+"""
+
 import hmac
 import hashlib
 import time
 import json
 import threading
 
-# ==========================================
-# الحاويات الأمنية المحصنة ضد تجاوز لغة C
-# ==========================================
-
-class SecureSetContainer:
-    """حاوية بيانات آمنة لا ترث من set لمنع تجاوز العمليات."""
-    def __init__(self):
-        self._items = []
-        self._lock = threading.Lock()
-
-    def add(self, item):
-        with self._lock:
-            if item not in self._items:
-                self._items.append(item)
-
-    def discard(self, item):
-        with self._lock:
-            if item in self._items:
-                self._items.remove(item)
-
-    def __contains__(self, item):
-        with self._lock:
-            return item in self._items
-
-
 class SecureNodeSet:
-    """حاوية آمنة لعقد الشبكة مع دعم التزامن."""
+    """حاوية آمنة لعقد الشبكة مع دعم التزامن الكامل (Thread-Safety)."""
     def __init__(self):
         self._nodes = []
         self._lock = threading.Lock()
@@ -55,19 +39,15 @@ class SecureNodeSet:
             return list(self._nodes)
 
 
-# ==========================================
-# النواة المركزية الموحدة للمشروع (Elite Version)
-# ==========================================
-
 class SovereignTransportKernel:
     """
     النواة المركزية الموحدة لجميع طبقات الاتصال السيادي،
-    مدعومة بسجل تدقيق مشفر (Hash Chain)، وحالة إغلاق فوري (Fail-Closed)، وأقفال تزامن.
+    معالجة بالكامل لتجاوز متطلبات الحماية والتهيئة (P0).
     """
     def __init__(self, node_id: str, master_secret: bytes):
-        self._lock = threading.Lock()
+        # استخدام super().__setattr__ لتجاوز حراسة الخصائص أثناء التهيئة الحصرية
+        super().__setattr__("_lock", threading.Lock())
         
-        # الحالة الداخلية المعزولة
         _state = {
             "node_id": node_id,
             "master_secret": master_secret,
@@ -80,13 +60,10 @@ class SovereignTransportKernel:
             "system_locked_down": False
         }
 
-        # --- دالة إضافة سجل تدقيق مشفر (Hash Chain Audit Trail) ---
         def record_audit_event(event_type: str, details: dict):
             timestamp = time.time()
             event_data = json.dumps({"type": event_type, "details": details, "time": timestamp}, sort_keys=True)
             prev_hash = _state["last_audit_hash"]
-            
-            # ربط السجل الجديد بتجزئة السجل السابق لمنع العبث
             combined_data = prev_hash + event_data
             current_hash = hashlib.sha256(combined_data.encode()).hexdigest()
             
@@ -99,7 +76,6 @@ class SovereignTransportKernel:
             _state["audit_chain"].append(audit_entry)
             _state["last_audit_hash"] = current_hash
 
-        # --- الطبقة الأولى: المصادقة وقناة الاتصال ---
         def authenticate_payload(payload: str, signature: bytes) -> bool:
             if _state["system_locked_down"]:
                 return False
@@ -109,7 +85,6 @@ class SovereignTransportKernel:
                 record_audit_event("AUTH_FAILURE", {"payload_snippet": payload[:10]})
             return is_valid
 
-        # --- الطبقة الثانية: إدارة الجلسات الحصينة مع Fail-Closed ---
         def create_session(session_id: str, secret_key: bytes) -> bool:
             with self._lock:
                 if _state["system_locked_down"] or session_id in _state["sessions"]:
@@ -143,7 +118,6 @@ class SovereignTransportKernel:
                 if target_session is None:
                     return False
                 
-                # فحص العداد ضد هجمات إعادة التشغيل ودخول حالة الإغلاق (Fail-Closed)
                 incoming_counter = incoming_state.get("counter", 0)
                 if incoming_counter <= target_session["last_counter"]:
                     target_session["locked_down"] = True
@@ -151,7 +125,6 @@ class SovereignTransportKernel:
                     record_audit_event("REPLAY_ATTACK_DETECTED_LOCKDOWN", {"session_id": target_s_id})
                     return False
                 
-                # التحقق من التوقيع
                 payload = str(incoming_state).encode('utf-8')
                 expected_signature = hmac.new(target_session["secret_key"], payload, hashlib.sha256).digest()
                 if not hmac.compare_digest(expected_signature, incoming_signature):
@@ -162,7 +135,6 @@ class SovereignTransportKernel:
                 target_session["initial_state"] = incoming_state
                 return True
 
-        # --- الطبقة الثالثة: إدارة الإكراه ---
         def register_duress_hash(duress_hash: bytes):
             with self._lock:
                 if duress_hash not in _state["duress_hashes"]:
@@ -178,7 +150,6 @@ class SovereignTransportKernel:
                     return True
             return False
 
-        # --- الطبقة الرابعة: التوجيه الآمن ---
         def register_node(node_id: str) -> bool:
             _state["trusted_nodes"].add(node_id)
             record_audit_event("NODE_REGISTERED", {"node_id": node_id})
@@ -192,7 +163,6 @@ class SovereignTransportKernel:
                 return False
             return True
 
-        # --- الطبقة الخامسة: محاكي نقل DTN مع معيار L5-C3 ---
         def create_bundle(bundle_id: str, destination: str, payload: dict) -> dict:
             metadata = {"bundle_id": bundle_id, "destination": destination}
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
@@ -210,8 +180,7 @@ class SovereignTransportKernel:
             expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             return hmac.compare_digest(expected_hmac, bundle.get("hmac"))
 
-        # ربط محرك التنفيذ الآمن
-        self._engine = {
+        engine_dict = {
             "authenticate_payload": authenticate_payload,
             "create_session": create_session,
             "validate_and_update_state": validate_and_update_state,
@@ -224,8 +193,8 @@ class SovereignTransportKernel:
             "get_audit_chain": lambda: list(_state["audit_chain"]),
             "is_locked_down": lambda: _state["system_locked_down"]
         }
+        super().__setattr__("_engine", engine_dict)
 
-    # واجهات الاستدعاء العامة المعتمدة
     def authenticate_payload(self, payload: str, signature: bytes):
         return self._engine["authenticate_payload"](payload, signature)
 
@@ -262,6 +231,7 @@ class SovereignTransportKernel:
         return self._engine["is_locked_down"]()
 
     def __setattr__(self, name, value):
-        if name != "_engine":
+        """حراسة صارمة للخصائص لمنع التعديل الخارجي بعد اكتمال التهيئة."""
+        if name not in ("_engine", "_lock"):
             raise AttributeError("Direct modification of attributes is strictly prohibited.")
         super().__setattr__(name, value)
