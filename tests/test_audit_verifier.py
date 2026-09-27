@@ -2,11 +2,20 @@ import sys
 import os
 import unittest
 
-# إضافة المجلد الرئيسي للمشروع إلى مسار البحث لضمان استيراد النواة وأداة التدقيق بنجاح
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# إضافة المسارات المحتملة للجذر لضمان إيجاد الملفات في بيئة الـ CI
+current_dir = os.path.dirname(os.path.abspath(__file__))
+root_dir = os.path.abspath(os.path.join(current_dir, '..'))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
 
-from sovereign_transport_kernel import SovereignTransportKernel
-from audit_verifier import SovereignAuditVerifier
+try:
+    from sovereign_transport_kernel import SovereignTransportKernel
+    from audit_verifier import SovereignAuditVerifier
+except ImportError:
+    # محاولة بديلة في حال كان مسار التنفيذ مختلفاً في بيئة الاختبار
+    sys.path.insert(0, os.getcwd())
+    from sovereign_transport_kernel import SovereignTransportKernel
+    from audit_verifier import SovereignAuditVerifier
 
 class TestAuditVerifier(unittest.TestCase):
     def test_chain_integrity(self):
