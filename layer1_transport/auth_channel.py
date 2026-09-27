@@ -26,8 +26,11 @@ def create_auth_channel(node_id: str, master_secret: bytes):
         "seen_nonces": SecureSetContainer()
     }
 
-    def authenticate_payload(payload: str, signature: bytes) -> bool:
-        expected_sig = hmac.new(_state["master_secret"], payload.encode(), hashlib.sha256).digest()
+    def authenticate_payload(payload: str, signature: bytes, destination: str = "") -> bool:
+        """التحقق الصارم من الحمولة مع دمج الوجهة لضمان عدم تجاوز بيانات التوجيه."""
+        # دمج الحمولة مع الوجهة بفاصل آمن لضمان ربط حقول التوجيه أمنياً بال HMAC
+        combined_data = f"{destination}:{payload}"
+        expected_sig = hmac.new(_state["master_secret"], combined_data.encode(), hashlib.sha256).digest()
         return hmac.compare_digest(expected_sig, signature)
 
     def verify_nonce(nonce: str) -> bool:
