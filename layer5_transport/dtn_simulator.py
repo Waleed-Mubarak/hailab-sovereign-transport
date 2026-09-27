@@ -1,7 +1,7 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Final Fixed)
-Description: Isolated Layer 5 transport implementation with reliable store_and_forward.
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final)
+Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement.
 ================================================================================
 """
 
@@ -11,7 +11,7 @@ import json
 import types
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع التخزين الآمن والتحقق الإلزامي (P0)."""
+    """محاكي نقل DTN للطبقة الخامسة مع التحقق الإلزامي الصارم لمنع تلاعب الوجهة ومعرف الحزمة (P0)."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -58,7 +58,7 @@ class SovereignDTNTransportSimulator:
             return True
 
         def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
-            """تخزين وتوجيه الحزمة بشكل موثوق يضمن اجتياز الاختبارات."""
+            """تخزين وتوجيه الحزمة بشكل موثوق مع فرض سلامة البيانات الوصفية."""
             bundle_id = f"bundle-{hashlib.sha256(str(payload).encode()).hexdigest()[:8]}"
             destination = destination_node or "default-dest"
             
@@ -88,6 +88,18 @@ class SovereignDTNTransportSimulator:
             payload = bundle.get("payload", {})
             provided_hmac = bundle.get("hmac")
             
+            # --- P0.1 Enforcement: Strict Destination Consistency Check ---
+            top_destination = bundle.get("destination")
+            meta_destination = metadata.get("destination")
+            if top_destination != meta_destination:
+                return False  # رفض فوري عند أي اختلاف في الوجهة
+
+            # --- P0.2 Enforcement: Strict Bundle ID Consistency Check ---
+            top_bundle_id = bundle.get("bundle_id")
+            meta_bundle_id = metadata.get("bundle_id")
+            if top_bundle_id != meta_bundle_id:
+                return False  # رفض فوري عند أي تلاعب في مُعرّف الحزمة
+
             secret = session_key or bundle.get("session_key") or _state["master_secret"]
             
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
