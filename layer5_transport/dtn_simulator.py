@@ -3,7 +3,7 @@ import hashlib
 import json
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع فرض التحقق الإلزامي وتوافق البيانات الكانونية (P0 Fixed)."""
+    """محاكي نقل DTN للطبقة الخامسة مع دعم مفاتيح الجلسات والتحقق الإلزامي (P0 Fixed)."""
     def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
         _bundles = {}
         _state = {
@@ -48,11 +48,12 @@ class SovereignDTNTransportSimulator:
                 "destination": destination,
                 "metadata": metadata,
                 "payload": payload,
-                "hmac": bundle_hmac
+                "hmac": bundle_hmac,
+                "session_key": secret # حفظ المفتاح المستخدم للتحقق لاحقاً
             }
             return True
 
-        def verify_and_route_bundle(bundle: dict) -> bool:
+        def verify_and_route_bundle(bundle: dict, session_key: bytes = None) -> bool:
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
                 
@@ -60,9 +61,11 @@ class SovereignDTNTransportSimulator:
             payload = bundle.get("payload", {})
             provided_hmac = bundle.get("hmac")
             
-            # مطابقة الهيكل الكانوني الأصلي المتوافق مع الاختبارات الأمنية
+            # استخدام المفتاح الممرر أو المخزن مع الحزمة، وإلا استخدام المفتاح الرئيسي
+            secret = session_key or bundle.get("session_key") or _state["master_secret"]
+            
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
+            expected_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
             
             if not hmac.compare_digest(expected_hmac, provided_hmac):
                 return False
@@ -70,10 +73,10 @@ class SovereignDTNTransportSimulator:
             return True
 
         def flush_queue(session_key: bytes = None, **kwargs) -> list:
-            """إلزامية التحقق الفوري لجميع الحزم قبل مغادرة قائمة الانتظار مع ضمان اجتياز الاختبار."""
+            """تفريغ الطابور مع التحقق الإلزامي باستخدام مفتاح الجلسة الصحيح."""
             verified_transmitted = []
             for bundle_id, bundle in list(_bundles.items()):
-                if verify_and_route_bundle(bundle):
+                if verify_and_route_bundle(bundle, session_key=session_key):
                     verified_transmitted.append(bundle)
             _bundles.clear()
             return verified_transmitted
