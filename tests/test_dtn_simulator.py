@@ -49,5 +49,62 @@ class TestSovereignDTNTransportSimulator(unittest.TestCase):
         with self.assertRaises(AttributeError):
             simulator.link_status = "OFFLINE"
 
+    def test_p0_1_destination_mismatch_rejection(self):
+        """التحقق من رفض الحزمة فوراً (Fail-closed) عند اختلاف الوجهة (P0.1)."""
+        simulator = SovereignDTNTransportSimulator(node_id="node-alpha")
+        session_key = b"space_secure_dtn_key_32bytes_len!!"
+        
+        # إنشاء حزمة صحيحة
+        valid_bundle = simulator.create_bundle(
+            bundle_id="bundle-001",
+            destination="node-beta",
+            payload={"data": "test"}
+        )
+        
+        # محاولة التلاعب بالوجهة في المستوى الأعلى لتخالف الـ metadata
+        tampered_bundle = valid_bundle.copy()
+        tampered_bundle["destination"] = "node-malicious"
+        
+        # محاولة إرسال الحزمة المتلاعب بها
+        success = simulator.transmit_packet(
+            bundle_id="bundle-001",
+            destination="node-beta",
+            payload={},
+            custom_bundle=tampered_bundle,
+            session_key=session_key
+        )
+        
+        # يجب أن يتم رفض الحزمة تماماً ولا تُضاف للطابور
+        self.assertFalse(success)
+        self.assertEqual(simulator.queue_size, 0)
+
+    def test_p0_2_bundle_id_tampering_rejection(self):
+        """التحقق من رفض الحزمة فوراً عند التلاعب بمعرف الحزمة bundle_id (P0.2)."""
+        simulator = SovereignDTNTransportSimulator(node_id="node-alpha")
+        session_key = b"space_secure_dtn_key_32bytes_len!!"
+        
+        # إنشاء حزمة صحيحة
+        valid_bundle = simulator.create_bundle(
+            bundle_id="bundle-002",
+            destination="node-beta",
+            payload={"data": "test"}
+        )
+        
+        # محاولة التلاعب بـ bundle_id
+        tampered_bundle = valid_bundle.copy()
+        tampered_bundle["bundle_id"] = "bundle-hacked"
+        
+        success = simulator.transmit_packet(
+            bundle_id="bundle-hacked",
+            destination="node-beta",
+            payload={},
+            custom_bundle=tampered_bundle,
+            session_key=session_key
+        )
+        
+        # يجب أن يفشل التحقق ويتم رفض الحزمة (Fail-closed)
+        self.assertFalse(success)
+        self.assertEqual(simulator.queue_size, 0)
+
 if __name__ == '__main__':
     unittest.main()
