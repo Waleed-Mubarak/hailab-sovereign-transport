@@ -1,7 +1,7 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final)
-Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement.
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v2)
+Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement and Fail-closed queue protection.
 ================================================================================
 """
 
@@ -36,15 +36,18 @@ class SovereignDTNTransportSimulator:
                 "payload": payload,
                 "hmac": bundle_hmac
             }
-            _bundles[bundle_id] = bundle
+            # ملاحظة: لا يتم حفظها هنا بشكل دائم إلا بعد اجتياز التحقق في transmit_packet
             return bundle
 
         def transmit_packet(bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None, session_key: bytes = None) -> bool:
             if custom_bundle is not None:
                 if not isinstance(custom_bundle, dict):
                     return False
+                
+                # التحقق الأمني الصارم أولاً قبل السماح بدخولها للطابور (Fail-closed)
                 if not verify_and_route_bundle(custom_bundle, session_key=session_key):
-                    return False
+                    return False  # رفض فوري وعدم تخزينها نهائياً
+                
                 b_id = custom_bundle.get("bundle_id", "default_id")
                 _bundles[b_id] = custom_bundle
                 return True
@@ -55,6 +58,8 @@ class SovereignDTNTransportSimulator:
             bundle = create_bundle(bundle_id, destination, payload)
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
+            
+            _bundles[bundle_id] = bundle
             return True
 
         def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
@@ -70,7 +75,7 @@ class SovereignDTNTransportSimulator:
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
             
-            _bundles[bundle_id] = {
+            bundle = {
                 "bundle_id": bundle_id,
                 "destination": destination,
                 "metadata": metadata,
@@ -78,6 +83,12 @@ class SovereignDTNTransportSimulator:
                 "hmac": bundle_hmac,
                 "session_key": secret
             }
+            
+            # التحقق قبل الحفظ في الطابور
+            if not verify_and_route_bundle(bundle, session_key=secret):
+                return False
+                
+            _bundles[bundle_id] = bundle
             return True
 
         def verify_and_route_bundle(bundle: dict, session_key: bytes = None) -> bool:
