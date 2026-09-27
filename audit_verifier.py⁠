@@ -1,1 +1,54 @@
+"""
+================================================================================
+Project: Hailab Sovereign Transport
+Component: Independent Audit Chain Verifier (Elite Defense-Grade Compliance)
+Description: Standalone utility to independently reconstruct and verify the SHA-256 
+             cryptographic audit trail, ensuring zero tampering or log truncation.
+================================================================================
+"""
+
+import hashlib
+import json
+
+class SovereignAuditVerifier:
+    """متحقق مستقل لسلسلة التدقيق والتجزئة المشفرة."""
+    
+    @staticmethod
+    def verify_audit_chain(audit_chain: list) -> bool:
+        """
+        التحقق من سلامة سلسلة التدقيق سجلاً بسجل عبر إعادة بناء تجزئة SHA-256.
+        """
+        if not isinstance(audit_chain, list):
+            return False
+
+        current_expected_prev_hash = "0" * 64
+
+        for index, entry in enumerate(audit_chain):
+            if not isinstance(entry, dict):
+                return False
+
+            # التحقق من مطابقة رابط التجزئة السابق
+            if entry.get("prev_hash") != current_expected_prev_hash:
+                return False
+
+            timestamp = entry.get("timestamp")
+            event_type = entry.get("event_type")
+            
+            # إعادة بناء بيانات الحدث بنفس المعيار المستخدم في النواة
+            event_data_str = json.dumps({
+                "type": event_type, 
+                "details": entry.get("details", {}), 
+                "time": timestamp
+            }, sort_keys=True)
+            
+            combined_data = current_expected_prev_hash + event_data_str
+            recalculated_hash = hashlib.sha256(combined_data.encode()).hexdigest()
+
+            # التحقق من مطابقة التجزئة الحالية
+            if recalculated_hash != entry.get("current_hash"):
+                return False
+
+            current_expected_prev_hash = recalculated_hash
+
+        return True
 
