@@ -2,7 +2,7 @@
 ================================================================================
 Project: Hailab Sovereign Transport
 Component: SovereignTransportKernel & Layer5Transport & SovereignAuditVerifier
-Description: Complete Unified Defense-Grade Core (P0 Final RC)
+Description: Complete Unified Defense-Grade Core (P0 Final Final Resolution)
 ================================================================================
 """
 
@@ -61,10 +61,7 @@ class SecureQueueManager:
 
 
 class SovereignTransportKernel:
-    """
-    النواة المركزية الموحدة لجميع طبقات الاتصال السيادي،
-    متضمنة لكافة الدوال والخصائص المطلوبة لاجتياز اختبارات الانحدار.
-    """
+    """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final RC)."""
     def __init__(self, node_id: str = "node_default", master_secret: bytes = b"master_secret_key"):
         super().__setattr__("_lock", threading.Lock())
         
@@ -204,6 +201,7 @@ class SovereignTransportKernel:
             meta_bundle_id = metadata.get("bundle_id", "")
             meta_destination = metadata.get("destination", "")
             
+            # P0.2 & P0.1 Checks
             if not bundle_id or not meta_bundle_id or bundle_id != meta_bundle_id:
                 record_audit_event("BUNDLE_ID_MISMATCH_REJECTED", {"bundle_id": bundle_id, "meta_id": meta_bundle_id})
                 return False
@@ -289,7 +287,10 @@ class SovereignTransportKernel:
 
 
 class Layer5Transport:
-    """وحدة الطبقة الخامسة المستقلة - محصنة بالكامل ومطابقة لمعايير النواة المركزية (P0 Final)."""
+    """
+    وحدة الطبقة الخامسة المستقلة - محصنة بالكامل ومطابقة لمعايير النواة (P0 Final).
+    مدعومة بـ MappingProxyType وحماية صارمة تمنع استبدال الوظائف في وقت التشغيل (P0.3).
+    """
     def __init__(self, kernel: SovereignTransportKernel):
         super().__setattr__("_kernel", kernel)
         engine_dict = {
@@ -311,6 +312,7 @@ class Layer5Transport:
             meta_b_id = metadata.get("bundle_id", "")
             meta_dst = metadata.get("destination", "")
 
+            # منع التلاعب بالمعرف والوجهة (P0.1 & P0.2)
             if not b_id or not meta_b_id or b_id != meta_b_id:
                 return False
             if not b_dst or not meta_dst or meta_dst != b_dst:
@@ -333,7 +335,7 @@ class Layer5Transport:
         return True
 
     def __setattr__(self, name, value):
-        raise AttributeError("Direct modification of Layer5Transport attributes is strictly prohibited.")
+        raise AttributeError("Direct modification of Layer5Transport attributes and runtime overriding is strictly prohibited (P0.3).")
 
 
 class SovereignAuditVerifier:
