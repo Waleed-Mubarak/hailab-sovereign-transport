@@ -1,9 +1,10 @@
 """
 ================================================================================
 Project: Hailab Sovereign Transport
-Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fully Remediated)
+Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Secured)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
-             cryptographic hash chains, fail-closed state machines, and thread-safety.
+             cryptographic hash chains, fail-closed state machines, thread-safety,
+             and immutable engine execution links.
 ================================================================================
 """
 
@@ -12,6 +13,7 @@ import hashlib
 import time
 import json
 import threading
+import types
 
 class SecureNodeSet:
     """حاوية آمنة لعقد الشبكة مع دعم التزامن الكامل (Thread-Safety)."""
@@ -42,7 +44,7 @@ class SecureNodeSet:
 class SovereignTransportKernel:
     """
     النواة المركزية الموحدة لجميع طبقات الاتصال السيادي،
-    معالجة بالكامل لتجاوز متطلبات الحماية والتهيئة (P0).
+    معالجة بالكامل لتجاوز متطلبات الحماية والتهيئة الأمنية (P0).
     """
     def __init__(self, node_id: str, master_secret: bytes):
         super().__setattr__("_lock", threading.Lock())
@@ -66,7 +68,6 @@ class SovereignTransportKernel:
             combined_data = prev_hash + event_data
             current_hash = hashlib.sha256(combined_data.encode()).hexdigest()
             
-            # تم إضافة "details": details هنا لكي يتطابق مع المتحقق ويحل مشكلة الـ AssertionError نهائياً
             audit_entry = {
                 "timestamp": timestamp,
                 "event_type": event_type,
@@ -181,9 +182,10 @@ class SovereignTransportKernel:
             
             destination = bundle.get("destination", "")
             metadata = bundle.get("metadata", {})
+            meta_destination = metadata.get("destination", "")
             
-            if metadata.get("destination") != destination:
-                record_audit_event("ROUTING_MISMATCH_REJECTED", {"dst": destination, "meta_dst": metadata.get("destination")})
+            if not destination or not meta_destination or meta_destination != destination:
+                record_audit_event("ROUTING_MISMATCH_REJECTED", {"dst": destination, "meta_dst": meta_destination})
                 return False
 
             canonical_data = json.dumps({"destination": destination, "metadata": metadata, "payload": bundle.get("payload", {})}, sort_keys=True).encode()
@@ -208,7 +210,9 @@ class SovereignTransportKernel:
             "get_audit_chain": lambda: list(_state["audit_chain"]),
             "is_locked_down": lambda: _state["system_locked_down"]
         }
-        super().__setattr__("_engine", dict(engine_dict))
+        
+        # حماية صارمة للمحرك الداخلي وجعله غير قابل للتعديل (Read-Only Immutable Engine)
+        super().__setattr__("_engine", types.MappingProxyType(engine_dict))
 
     def authenticate_payload(self, payload: str, signature: bytes):
         return self._engine["authenticate_payload"](payload, signature)
