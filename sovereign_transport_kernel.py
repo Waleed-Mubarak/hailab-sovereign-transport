@@ -1,11 +1,11 @@
 """
 ================================================================================
 Project: Hailab Sovereign Transport
-Component: SovereignTransportKernel & Layer5Transport (Elite Defense-Grade Core - P0 Final)
+Component: SovereignTransportKernel & Layer5Transport (Elite Defense-Grade Core - P0 Final RC)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
              cryptographic hash chains, fail-closed state machines, thread-safety,
              immutable engine execution links, secure queue management, 
-             lock immobility, strict bundle ID validation, unified Layer 5 transport,
+             lock immobility, strict bundle ID validation, fully synchronized Layer 5 transport,
              and independent audit verification.
 ================================================================================
 """
@@ -61,7 +61,6 @@ class SecureQueueManager:
                 return None
             bundle = self._queue.pop(0)
             
-            # فرض التحقق الإلزامي عبر دالة التحقق الخاصة بالنواة
             if not self._verify_func(bundle):
                 return None
             return bundle
@@ -212,6 +211,7 @@ class SovereignTransportKernel:
             meta_bundle_id = metadata.get("bundle_id", "")
             meta_destination = metadata.get("destination", "")
             
+            # منع التلاعب أو قبول معرف حزمة بديل بشكل صارم
             if not bundle_id or not meta_bundle_id or bundle_id != meta_bundle_id:
                 record_audit_event("BUNDLE_ID_MISMATCH_REJECTED", {"bundle_id": bundle_id, "meta_id": meta_bundle_id})
                 return False
@@ -297,15 +297,25 @@ class SovereignTransportKernel:
 
 
 class Layer5Transport:
-    """وحدة الطبقة الخامسة المستقلة - موحدة بالكامل مع النواة لضمان مطابقة فحص الوجهات."""
+    """وحدة الطبقة الخامسة المستقلة - مطابقة تماماً ومتحققة صارماً عبر سياسات النواة المركزية."""
     def __init__(self, kernel: SovereignTransportKernel):
         self._kernel = kernel
 
-    def transmit_packet(self, bundle_id: str, destination: str, payload: dict) -> bool:
+    def transmit_packet(self, bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None) -> bool:
+        """
+        إرسال الحزمة مع فرض الفحص الصارم للوجهة ومعرفات الحزم.
+        إذا تم تمرير حزمة مخصصة (custom_bundle)، يتم فحصها بدقة ورفضها فوراً إذا خالفت معايير النواة.
+        """
+        if custom_bundle is not None:
+            # فرض الرفض القاطع لأي محاولة تجاوز أو تلاعب تطرأ على معرف الحزمة أو الوجهة
+            if not self._kernel.verify_and_route_bundle(custom_bundle):
+                return False
+            self._kernel.enqueue_bundle(custom_bundle)
+            return True
+
         if not destination or not isinstance(destination, str):
             return False
         
-        # إنشاء الحزمة والتحقق الصارم منها عبر النواة مباشرة لمنع أي تفاوت
         bundle = self._kernel.create_bundle(bundle_id, destination, payload)
         if not self._kernel.verify_and_route_bundle(bundle):
             return False
