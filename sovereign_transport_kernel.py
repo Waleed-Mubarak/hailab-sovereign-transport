@@ -165,7 +165,6 @@ class SovereignTransportKernel:
 
         def create_bundle(bundle_id: str, destination: str, payload: dict) -> dict:
             metadata = {"bundle_id": bundle_id, "destination": destination}
-            # ربط الوجهة صراحة لمنع التجاوز
             canonical_data = json.dumps({"destination": destination, "metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
@@ -207,7 +206,6 @@ class SovereignTransportKernel:
             "get_audit_chain": lambda: list(_state["audit_chain"]),
             "is_locked_down": lambda: _state["system_locked_down"]
         }
-        # تجميد وحماية القاموس الداخلي لمنع التعديل الخارجي
         super().__setattr__("_engine", dict(engine_dict))
 
     def authenticate_payload(self, payload: str, signature: bytes):
@@ -246,7 +244,43 @@ class SovereignTransportKernel:
         return self._engine["is_locked_down"]()
 
     def __setattr__(self, name, value):
-        """حراسة صارمة للخصائص لمنع التعديل الخارجي بعد اكتمال التهيئة."""
         if name not in ("_engine", "_lock"):
             raise AttributeError("Direct modification of attributes is strictly prohibited.")
         super().__setattr__(name, value)
+
+
+class SovereignAuditVerifier:
+    """متحقق مستقل لسلسلة التدقيق والتجزئة المشفرة."""
+    
+    @staticmethod
+    def verify_audit_chain(audit_trail: list) -> bool:
+        if not isinstance(audit_trail, list):
+            return False
+
+        current_expected_prev_hash = "0" * 64
+
+        for entry in audit_trail:
+            if not isinstance(entry, dict):
+                return False
+
+            if entry.get("prev_hash") != current_expected_prev_hash:
+                return False
+
+            timestamp = entry.get("timestamp")
+            event_type = entry.get("event_type")
+            
+            event_data_str = json.dumps({
+                "type": event_type, 
+                "details": entry.get("details", {}), 
+                "time": timestamp
+            }, sort_keys=True)
+            
+            combined_data = current_expected_prev_hash + event_data_str
+            recalculated_hash = hashlib.sha256(combined_data.encode()).hexdigest()
+
+            if recalculated_hash != entry.get("current_hash"):
+                return False
+
+            current_expected_prev_hash = recalculated_hash
+
+        return True
