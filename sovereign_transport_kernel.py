@@ -1,11 +1,12 @@
 """
 ================================================================================
 Project: Hailab Sovereign Transport
-Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Final Hardened RC)
+Component: SovereignTransportKernel & Layer5Transport (Elite Defense-Grade Core - P0 Final)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
              cryptographic hash chains, fail-closed state machines, thread-safety,
              immutable engine execution links, secure queue management, 
-             lock immobility, strict bundle ID validation, and independent audit verification.
+             lock immobility, strict bundle ID validation, unified Layer 5 transport,
+             and independent audit verification.
 ================================================================================
 """
 
@@ -72,7 +73,6 @@ class SovereignTransportKernel:
     معالجة بالكامل ومحصنة ضد كافة متطلبات الاختراق ومطابقة لمعايير P0.
     """
     def __init__(self, node_id: str, master_secret: bytes):
-        # استخدام قفل محمي وغير قابل للتعديل نهائياً
         super().__setattr__("_lock", threading.Lock())
         
         _state = {
@@ -212,7 +212,6 @@ class SovereignTransportKernel:
             meta_bundle_id = metadata.get("bundle_id", "")
             meta_destination = metadata.get("destination", "")
             
-            # التحقق الصارم لمنع قبول معرف حزمة بديل أو تلاعب بالبيانات الوصفية
             if not bundle_id or not meta_bundle_id or bundle_id != meta_bundle_id:
                 record_audit_event("BUNDLE_ID_MISMATCH_REJECTED", {"bundle_id": bundle_id, "meta_id": meta_bundle_id})
                 return False
@@ -230,7 +229,6 @@ class SovereignTransportKernel:
                 
             return True
 
-        # ربط مدير قائمة الانتظار بدالة التحقق الصارم
         queue_manager = SecureQueueManager(verify_and_route_bundle)
 
         engine_dict = {
@@ -249,7 +247,6 @@ class SovereignTransportKernel:
             "is_locked_down": lambda: _state["system_locked_down"]
         }
         
-        # حماية صارمة للمحرك الداخلي وجعله غير قابل للتعديل (Read-Only Immutable Engine)
         super().__setattr__("_engine", types.MappingProxyType(engine_dict))
 
     def authenticate_payload(self, payload: str, signature: bytes):
@@ -294,10 +291,27 @@ class SovereignTransportKernel:
         return self._engine["is_locked_down"]()
 
     def __setattr__(self, name, value):
-        # حماية صارمة لمنع استبدال قفل التزامن أو المحرك الداخلي نهائياً
         if name in ("_engine", "_lock"):
             raise AttributeError(f"Modification of core protection attribute '{name}' is strictly prohibited.")
         raise AttributeError("Direct modification of attributes is strictly prohibited.")
+
+
+class Layer5Transport:
+    """وحدة الطبقة الخامسة المستقلة - موحدة بالكامل مع النواة لضمان مطابقة فحص الوجهات."""
+    def __init__(self, kernel: SovereignTransportKernel):
+        self._kernel = kernel
+
+    def transmit_packet(self, bundle_id: str, destination: str, payload: dict) -> bool:
+        if not destination or not isinstance(destination, str):
+            return False
+        
+        # إنشاء الحزمة والتحقق الصارم منها عبر النواة مباشرة لمنع أي تفاوت
+        bundle = self._kernel.create_bundle(bundle_id, destination, payload)
+        if not self._kernel.verify_and_route_bundle(bundle):
+            return False
+        
+        self._kernel.enqueue_bundle(bundle)
+        return True
 
 
 class SovereignAuditVerifier:
@@ -314,7 +328,6 @@ class SovereignAuditVerifier:
             if not isinstance(entry, dict):
                 return False
 
-            # التحقق الإلزامي من تطابق الهاش السابق بدقة
             if entry.get("prev_hash") != current_expected_prev_hash:
                 return False
 
@@ -322,11 +335,9 @@ class SovereignAuditVerifier:
             event_type = entry.get("event_type")
             details = entry.get("details")
             
-            # التأكد من عدم وجود بيانات ناقصة أو تالفة في السجل
             if timestamp is None or not event_type or not isinstance(details, dict):
                 return False
             
-            # إعادة بناء البيانات بنفس الصيغة القياسية والمنظمة تماماً كما تم توليدها
             event_data = json.dumps({
                 "type": event_type, 
                 "details": details, 
@@ -336,7 +347,6 @@ class SovereignAuditVerifier:
             combined_data = current_expected_prev_hash + event_data
             recalculated_hash = hashlib.sha256(combined_data.encode()).hexdigest()
 
-            # مطابقة الهاش المشفر بدقة متناهية
             if recalculated_hash != entry.get("current_hash"):
                 return False
 
