@@ -1,4 +1,10 @@
+import sys
+import os
 import unittest
+
+# إضافة المجلد الرئيسي للمشروع إلى مسار البحث لضمان استيراد النواة وأداة التدقيق بنجاح
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from sovereign_transport_kernel import SovereignTransportKernel
 from audit_verifier import SovereignAuditVerifier
 
@@ -15,4 +21,3 @@ class TestAuditVerifier(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
