@@ -4,7 +4,8 @@ Project: Hailab Sovereign Transport
 Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fully Secured)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
              cryptographic hash chains, fail-closed state machines, thread-safety,
-             immutable engine execution links, and secure queue management.
+             immutable engine execution links, secure queue management, and 
+             advanced independent audit trail verification.
 ================================================================================
 """
 
@@ -291,7 +292,7 @@ class SovereignTransportKernel:
 
 
 class SovereignAuditVerifier:
-    """متحقق مستقل لسلسلة التدقيق والتجزئة المشفرة."""
+    """متحقق مستقل ومتقدم لسلسلة التدقيق والتجزئة المشفرة مع حماية ضد التلاعب والحقن."""
     
     @staticmethod
     def verify_audit_chain(audit_trail: list) -> bool:
@@ -304,13 +305,19 @@ class SovereignAuditVerifier:
             if not isinstance(entry, dict):
                 return False
 
+            # التحقق الإلزامي من تطابق الهاش السابق بدقة
             if entry.get("prev_hash") != current_expected_prev_hash:
                 return False
 
             timestamp = entry.get("timestamp")
             event_type = entry.get("event_type")
-            details = entry.get("details", {})
+            details = entry.get("details")
             
+            # التأكد من عدم وجود بيانات ناقصة أو تالفة في السجل
+            if timestamp is None or not event_type or not isinstance(details, dict):
+                return False
+            
+            # إعادة بناء البيانات بنفس الصيغة القياسية والمنظمة تماماً كما تم توليدها
             event_data = json.dumps({
                 "type": event_type, 
                 "details": details, 
@@ -320,6 +327,7 @@ class SovereignAuditVerifier:
             combined_data = current_expected_prev_hash + event_data
             recalculated_hash = hashlib.sha256(combined_data.encode()).hexdigest()
 
+            # مطابقة الهاش المشفر بدقة متناهية
             if recalculated_hash != entry.get("current_hash"):
                 return False
 
