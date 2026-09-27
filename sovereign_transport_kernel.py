@@ -1,3 +1,11 @@
+"""
+================================================================================
+Project: Hailab Sovereign Transport
+Component: SovereignTransportKernel & Layer5Transport & SovereignAuditVerifier
+Description: Complete Unified Defense-Grade Core (P0 Final RC)
+================================================================================
+"""
+
 import hmac
 import hashlib
 import time
@@ -53,7 +61,10 @@ class SecureQueueManager:
 
 
 class SovereignTransportKernel:
-    """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final RC)."""
+    """
+    النواة المركزية الموحدة لجميع طبقات الاتصال السيادي،
+    متضمنة لكافة الدوال والخصائص المطلوبة لاجتياز اختبارات الانحدار.
+    """
     def __init__(self, node_id: str = "node_default", master_secret: bytes = b"master_secret_key"):
         super().__setattr__("_lock", threading.Lock())
         
@@ -90,7 +101,88 @@ class SovereignTransportKernel:
             if _state["system_locked_down"]:
                 return False
             expected_sig = hmac.new(_state["master_secret"], payload.encode(), hashlib.sha256).digest()
-            return hmac.compare_digest(expected_sig, signature)
+            is_valid = hmac.compare_digest(expected_sig, signature)
+            if not is_valid:
+                record_audit_event("AUTH_FAILURE", {"payload_snippet": payload[:10]})
+            return is_valid
+
+        def create_session(session_id: str, secret_key: bytes) -> bool:
+            with self._lock:
+                if _state["system_locked_down"] or session_id in _state["sessions"]:
+                    return False
+                _state["sessions"][session_id] = {
+                    "secret_key": secret_key,
+                    "active": True,
+                    "locked_down": False,
+                    "last_counter": 0,
+                    "created_at": time.time()
+                }
+                record_audit_event("SESSION_CREATED", {"session_id": session_id})
+                return True
+
+        def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None) -> bool:
+            with self._lock:
+                if _state["system_locked_down"] or not session_token or not incoming_state or not incoming_signature:
+                    return False
+                
+                target_session = None
+                target_s_id = None
+                for s_id, s_info in _state["sessions"].items():
+                    if not s_info["active"] or s_info["locked_down"]:
+                        continue
+                    expected_token = hmac.new(s_info["secret_key"], s_id.encode(), hashlib.sha256).digest()
+                    if hmac.compare_digest(expected_token, session_token):
+                        target_session = s_info
+                        target_s_id = s_id
+                        break
+                
+                if target_session is None:
+                    return False
+                
+                incoming_counter = incoming_state.get("counter", 0)
+                if incoming_counter <= target_session["last_counter"]:
+                    target_session["locked_down"] = True
+                    _state["system_locked_down"] = True
+                    record_audit_event("REPLAY_ATTACK_DETECTED_LOCKDOWN", {"session_id": target_s_id})
+                    return False
+                
+                payload = str(incoming_state).encode('utf-8')
+                expected_signature = hmac.new(target_session["secret_key"], payload, hashlib.sha256).digest()
+                if not hmac.compare_digest(expected_signature, incoming_signature):
+                    record_audit_event("INVALID_SIGNATURE", {"session_id": target_s_id})
+                    return False
+                
+                target_session["last_counter"] = incoming_counter
+                return True
+
+        def register_duress_hash(duress_hash: bytes):
+            with self._lock:
+                if duress_hash not in _state["duress_hashes"]:
+                    _state["duress_hashes"].append(duress_hash)
+
+        def check_duress_trigger(presented_input: str) -> bool:
+            if not presented_input or _state["system_locked_down"]:
+                return False
+            input_digest = hashlib.sha256(presented_input.encode()).digest()
+            for d_hash in _state["duress_hashes"]:
+                if hmac.compare_digest(input_digest, d_hash):
+                    record_audit_event("DURESS_TRIGGER_ACTIVATED", {})
+                    return True
+            return False
+
+        def register_node(node_id: str) -> bool:
+            _state["trusted_nodes"].add(node_id)
+            record_audit_event("NODE_REGISTERED", {"node_id": node_id})
+            return True
+
+        def route_message(source: str, destination: str, payload: dict) -> bool:
+            if _state["system_locked_down"]:
+                return False
+            if source not in _state["trusted_nodes"] or destination not in _state["trusted_nodes"]:
+                record_audit_event("ROUTING_REJECTED_UNTRUSTED_NODE", {"src": source, "dst": destination})
+                return False
+            record_audit_event("ROUTE_MESSAGE_SUCCESS", {"src": source, "dst": destination})
+            return True
 
         def create_bundle(bundle_id: str, destination: str, payload: dict) -> dict:
             metadata = {"bundle_id": bundle_id, "destination": destination}
@@ -103,7 +195,7 @@ class SovereignTransportKernel:
             return bundle
 
         def verify_and_route_bundle(bundle: dict) -> bool:
-            if _state["system_locked_down"] or not isinstance(bundle, dict) or "metadata" not in bundle:
+            if _state["system_locked_down"] or not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
             
             bundle_id = bundle.get("bundle_id", "")
@@ -112,7 +204,6 @@ class SovereignTransportKernel:
             meta_bundle_id = metadata.get("bundle_id", "")
             meta_destination = metadata.get("destination", "")
             
-            # التحقق الصارم لمنع التلاعب بمعرف الحزمة أو الوجهة (P0.1 & P0.2)
             if not bundle_id or not meta_bundle_id or bundle_id != meta_bundle_id:
                 record_audit_event("BUNDLE_ID_MISMATCH_REJECTED", {"bundle_id": bundle_id, "meta_id": meta_bundle_id})
                 return False
@@ -121,12 +212,25 @@ class SovereignTransportKernel:
                 record_audit_event("ROUTING_MISMATCH_REJECTED", {"dst": destination, "meta_dst": meta_destination})
                 return False
 
+            canonical_data = json.dumps({"destination": destination, "metadata": metadata, "payload": bundle.get("payload", {})}, sort_keys=True).encode()
+            expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
+            
+            if not hmac.compare_digest(expected_hmac, bundle.get("hmac")):
+                record_audit_event("BUNDLE_HMAC_FAILURE", {"bundle_id": bundle_id})
+                return False
+                
             return True
 
         queue_manager = SecureQueueManager(verify_and_route_bundle)
 
         engine_dict = {
             "authenticate_payload": authenticate_payload,
+            "create_session": create_session,
+            "validate_and_update_state": validate_and_update_state,
+            "register_duress_hash": register_duress_hash,
+            "check_duress_trigger": check_duress_trigger,
+            "register_node": register_node,
+            "route_message": route_message,
             "create_bundle": create_bundle,
             "verify_and_route_bundle": verify_and_route_bundle,
             "enqueue_bundle": queue_manager.enqueue,
@@ -136,6 +240,27 @@ class SovereignTransportKernel:
         }
         
         super().__setattr__("_engine", types.MappingProxyType(engine_dict))
+
+    def authenticate_payload(self, payload: str, signature: bytes):
+        return self._engine["authenticate_payload"](payload, signature)
+
+    def create_session(self, session_id: str, secret_key: bytes):
+        return self._engine["create_session"](session_id, secret_key)
+
+    def validate_and_update_state(self, session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None):
+        return self._engine["validate_and_update_state"](session_token, incoming_state, incoming_signature)
+
+    def register_duress_hash(self, duress_hash: bytes):
+        return self._engine["register_duress_hash"](duress_hash)
+
+    def check_duress_trigger(self, presented_input: str):
+        return self._engine["check_duress_trigger"](presented_input)
+
+    def register_node(self, node_id: str):
+        return self._engine["register_node"](node_id)
+
+    def route_message(self, source: str, destination: str, payload: dict):
+        return self._engine["route_message"](source, destination, payload)
 
     def create_bundle(self, bundle_id: str, destination: str, payload: dict):
         return self._engine["create_bundle"](bundle_id, destination, payload)
@@ -215,6 +340,37 @@ class SovereignAuditVerifier:
     """متحقق مستقل لسلسلة التدقيق والتجزئة المشفرة."""
     @staticmethod
     def verify_audit_chain(audit_trail: list) -> bool:
-        if not isinstance(audit_trail, list):
+        if not isinstance(audit_trail, list) or not audit_trail:
             return False
+
+        current_expected_prev_hash = "0" * 64
+
+        for entry in audit_trail:
+            if not isinstance(entry, dict):
+                return False
+
+            if entry.get("prev_hash") != current_expected_prev_hash:
+                return False
+
+            timestamp = entry.get("timestamp")
+            event_type = entry.get("event_type")
+            details = entry.get("details")
+            
+            if timestamp is None or not event_type or not isinstance(details, dict):
+                return False
+            
+            event_data = json.dumps({
+                "type": event_type, 
+                "details": details, 
+                "time": timestamp
+            }, sort_keys=True)
+            
+            combined_data = current_expected_prev_hash + event_data
+            recalculated_hash = hashlib.sha256(combined_data.encode()).hexdigest()
+
+            if recalculated_hash != entry.get("current_hash"):
+                return False
+
+            current_expected_prev_hash = recalculated_hash
+
         return True
