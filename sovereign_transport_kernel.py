@@ -1,10 +1,10 @@
 """
 ================================================================================
 Project: Hailab Sovereign Transport
-Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Secured)
+Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fully Secured)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
              cryptographic hash chains, fail-closed state machines, thread-safety,
-             and immutable engine execution links.
+             immutable engine execution links, and secure queue management.
 ================================================================================
 """
 
@@ -39,6 +39,30 @@ class SecureNodeSet:
     def items(self):
         with self._lock:
             return list(self._nodes)
+
+
+class SecureQueueManager:
+    """إدارة قائمة الانتظار مع فرض التحقق الإلزامي لسلامة البيانات قبل تحرير الحزم."""
+    def __init__(self, verify_func):
+        self._queue = []
+        self._verify_func = verify_func
+        self._lock = threading.Lock()
+
+    def enqueue(self, bundle: dict):
+        with self._lock:
+            self._queue.append(bundle)
+
+    def dequeue_and_verify(self) -> dict:
+        """سحب الحزمة مع تطبيق التحقق الإلزامي والصارم قبل مغادرة قائمة الانتظار."""
+        with self._lock:
+            if not self._queue:
+                return None
+            bundle = self._queue.pop(0)
+            
+            # فرض التحقق الإلزامي عبر دالة التحقق الخاصة بالنواة
+            if not self._verify_func(bundle):
+                return None
+            return bundle
 
 
 class SovereignTransportKernel:
@@ -197,6 +221,9 @@ class SovereignTransportKernel:
                 
             return True
 
+        # ربط مدير قائمة الانتظار بدالة التحقق الصارم
+        queue_manager = SecureQueueManager(verify_and_route_bundle)
+
         engine_dict = {
             "authenticate_payload": authenticate_payload,
             "create_session": create_session,
@@ -207,6 +234,8 @@ class SovereignTransportKernel:
             "route_message": route_message,
             "create_bundle": create_bundle,
             "verify_and_route_bundle": verify_and_route_bundle,
+            "enqueue_bundle": queue_manager.enqueue,
+            "dequeue_and_verify": queue_manager.dequeue_and_verify,
             "get_audit_chain": lambda: list(_state["audit_chain"]),
             "is_locked_down": lambda: _state["system_locked_down"]
         }
@@ -240,6 +269,12 @@ class SovereignTransportKernel:
 
     def verify_and_route_bundle(self, bundle: dict):
         return self._engine["verify_and_route_bundle"](bundle)
+
+    def enqueue_bundle(self, bundle: dict):
+        return self._engine["enqueue_bundle"](bundle)
+
+    def dequeue_and_verify(self):
+        return self._engine["dequeue_and_verify"]()
 
     @property
     def audit_trail(self):
