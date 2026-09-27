@@ -9,11 +9,11 @@
 
 | Requirement ID | Technical Description / Vulnerability | Status | Verified Run |
 | :--- | :--- | :--- | :--- |
-| **P0-01** | Kernel initialization and TCB protection | Passed | Run #251 |
-| **P0-02** | Automated Fail-Closed response under fault | Passed | Run #251 |
-| **P0-03** | Cryptographic audit trail integrity & MappingProxyType | Passed | Run #251 |
-| **P0-04** | Enforcement boundary isolation and independent L5 | Passed | Run #251 |
-| **P0-05** | Concurrency safety and race condition defense | Passed | Run #251 |
+| **P0-01** | Kernel initialization and TCB protection | Passed | Run #255 |
+| **P0-02** | Automated Fail-Closed response under fault | Passed | Run #255 |
+| **P0-03** | Cryptographic audit trail integrity & MappingProxyType | Passed | Run #255 |
+| **P0-04** | Enforcement boundary isolation and independent L5 | Passed | Run #255 |
+| **P0-05** | Concurrency safety and race condition defense | Passed | Run #255 |
 
 ---
 
