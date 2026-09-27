@@ -1,7 +1,7 @@
 """
 ================================================================================
 Project: Hailab Sovereign Transport
-Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fixed)
+Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fully Remediated)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
              cryptographic hash chains, fail-closed state machines, and thread-safety.
 ================================================================================
@@ -165,7 +165,8 @@ class SovereignTransportKernel:
 
         def create_bundle(bundle_id: str, destination: str, payload: dict) -> dict:
             metadata = {"bundle_id": bundle_id, "destination": destination}
-            canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
+            # ربط الوجهة صراحة لمنع التجاوز
+            canonical_data = json.dumps({"destination": destination, "metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
             bundle = {"bundle_id": bundle_id, "destination": destination, "metadata": metadata, "payload": payload, "hmac": bundle_hmac}
@@ -176,9 +177,22 @@ class SovereignTransportKernel:
         def verify_and_route_bundle(bundle: dict) -> bool:
             if _state["system_locked_down"] or not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
-            canonical_data = json.dumps({"metadata": bundle.get("metadata"), "payload": bundle.get("payload", {})}, sort_keys=True).encode()
+            
+            destination = bundle.get("destination", "")
+            metadata = bundle.get("metadata", {})
+            
+            if metadata.get("destination") != destination:
+                record_audit_event("ROUTING_MISMATCH_REJECTED", {"dst": destination, "meta_dst": metadata.get("destination")})
+                return False
+
+            canonical_data = json.dumps({"destination": destination, "metadata": metadata, "payload": bundle.get("payload", {})}, sort_keys=True).encode()
             expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
-            return hmac.compare_digest(expected_hmac, bundle.get("hmac"))
+            
+            if not hmac.compare_digest(expected_hmac, bundle.get("hmac")):
+                record_audit_event("BUNDLE_HMAC_FAILURE", {"bundle_id": metadata.get("bundle_id")})
+                return False
+                
+            return True
 
         engine_dict = {
             "authenticate_payload": authenticate_payload,
@@ -193,7 +207,8 @@ class SovereignTransportKernel:
             "get_audit_chain": lambda: list(_state["audit_chain"]),
             "is_locked_down": lambda: _state["system_locked_down"]
         }
-        super().__setattr__("_engine", engine_dict)
+        # تجميد وحماية القاموس الداخلي لمنع التعديل الخارجي
+        super().__setattr__("_engine", dict(engine_dict))
 
     def authenticate_payload(self, payload: str, signature: bytes):
         return self._engine["authenticate_payload"](payload, signature)
