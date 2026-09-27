@@ -1,11 +1,11 @@
 """
 ================================================================================
 Project: Hailab Sovereign Transport
-Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Fully Secured)
+Component: SovereignTransportKernel (Elite Defense-Grade Core - P0 Final Hardened RC)
 Description: Unified centralized kernel integrating strict TCB enforcement, 
              cryptographic hash chains, fail-closed state machines, thread-safety,
-             immutable engine execution links, secure queue management, and 
-             advanced independent audit trail verification.
+             immutable engine execution links, secure queue management, 
+             lock immobility, strict bundle ID validation, and independent audit verification.
 ================================================================================
 """
 
@@ -69,9 +69,10 @@ class SecureQueueManager:
 class SovereignTransportKernel:
     """
     النواة المركزية الموحدة لجميع طبقات الاتصال السيادي،
-    معالجة بالكامل لتجاوز متطلبات الحماية والتهيئة الأمنية (P0).
+    معالجة بالكامل ومحصنة ضد كافة متطلبات الاختراق ومطابقة لمعايير P0.
     """
     def __init__(self, node_id: str, master_secret: bytes):
+        # استخدام قفل محمي وغير قابل للتعديل نهائياً
         super().__setattr__("_lock", threading.Lock())
         
         _state = {
@@ -205,10 +206,17 @@ class SovereignTransportKernel:
             if _state["system_locked_down"] or not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
             
+            bundle_id = bundle.get("bundle_id", "")
             destination = bundle.get("destination", "")
             metadata = bundle.get("metadata", {})
+            meta_bundle_id = metadata.get("bundle_id", "")
             meta_destination = metadata.get("destination", "")
             
+            # التحقق الصارم لمنع قبول معرف حزمة بديل أو تلاعب بالبيانات الوصفية
+            if not bundle_id or not meta_bundle_id or bundle_id != meta_bundle_id:
+                record_audit_event("BUNDLE_ID_MISMATCH_REJECTED", {"bundle_id": bundle_id, "meta_id": meta_bundle_id})
+                return False
+
             if not destination or not meta_destination or meta_destination != destination:
                 record_audit_event("ROUTING_MISMATCH_REJECTED", {"dst": destination, "meta_dst": meta_destination})
                 return False
@@ -217,7 +225,7 @@ class SovereignTransportKernel:
             expected_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
             if not hmac.compare_digest(expected_hmac, bundle.get("hmac")):
-                record_audit_event("BUNDLE_HMAC_FAILURE", {"bundle_id": metadata.get("bundle_id")})
+                record_audit_event("BUNDLE_HMAC_FAILURE", {"bundle_id": bundle_id})
                 return False
                 
             return True
@@ -286,9 +294,10 @@ class SovereignTransportKernel:
         return self._engine["is_locked_down"]()
 
     def __setattr__(self, name, value):
-        if name not in ("_engine", "_lock"):
-            raise AttributeError("Direct modification of attributes is strictly prohibited.")
-        super().__setattr__(name, value)
+        # حماية صارمة لمنع استبدال قفل التزامن أو المحرك الداخلي نهائياً
+        if name in ("_engine", "_lock"):
+            raise AttributeError(f"Modification of core protection attribute '{name}' is strictly prohibited.")
+        raise AttributeError("Direct modification of attributes is strictly prohibited.")
 
 
 class SovereignAuditVerifier:
