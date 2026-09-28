@@ -1,4 +1,4 @@
-name: Sovereign Transport CI - Elite Defense Grade
+Name: Sovereign Transport CI - Elite Defense Grade
 
 on:
   push:
@@ -33,4 +33,4 @@ jobs:
 
       - name: Execute Full Security Regression and Pytest Suite
         run: |
-          PYTHONPATH=. pytest -v --strict-markers
+          python -m pytest -v --strict-markers
