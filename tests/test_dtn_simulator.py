@@ -10,8 +10,15 @@ import sys
 import os
 import hashlib
 
-# إضافة المجلد الرئيسي للمشروع (Root) إلى مسار بايثون لضمان رؤية الملفات وسحبها بنجاح
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# إضافة مسار الجذر (Root Directory) بشكل صريح ومباشر لمسار بايثون
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if root_dir not in sys.path:
+    sys.path.insert(0, root_dir)
+
+# طباعة محتويات المجلد الرئيسي للتأكد من وجود الملف على خادم غيت هب
+print("--- Root Directory Contents ---")
+print(os.listdir(root_dir))
+print("-------------------------------")
 
 from dtn_topology_simulator import DTNNodeSimulator
 
