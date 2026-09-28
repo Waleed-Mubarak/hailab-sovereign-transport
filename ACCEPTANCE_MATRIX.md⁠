@@ -1,22 +1,21 @@
-# Sovereign Transport Kernel Acceptance Matrix
-**Project:** Hailab Sovereign Transport
-**Status:** Ready for Final Security Evaluation
-**Reviewer:** Dr. Hikmat Meryemov
+# Kernel Acceptance Matrix
+# Sovereign Transport
+# Final Security Evaluation
+# Dr. Hikmet / Meryemov
 
----
+## Security Capabilities & Requirements
 
-## Critical P0 Vulnerabilities & Requirements
+| Technical Description / Vulnerability | Status | Verified Run |
+| :--- | :--- | :--- |
+| TCB isolation and TCB protection | Passed | Run #262 |
+| Fail-Closed response under fault | Passed | Run #262 |
+| Cryptographic audit trail integrity & MappingProxyType | Passed | Run #262 |
+| TCB boundary isolation and independent L5 | Passed | Run #262 |
+| Memory safety and race condition defense | Passed | Run #262 |
+| P0.1 Destination consistency check | Passed | Run #262 |
+| P0.2 Bundle ID consistency check | Passed | Run #262 |
+| P0.3 Trusted Session Registry & Untrusted Key Rejection | Passed | Run #262 |
 
-| Requirement ID | Technical Description / Vulnerability | Status | Verified Run |
-| :--- | :--- | :--- | :--- |
-| **P0-01** | Kernel initialization and TCB protection | Passed | Run #255 |
-| **P0-02** | Automated Fail-Closed response under fault | Passed | Run #255 |
-| **P0-03** | Cryptographic audit trail integrity & MappingProxyType | Passed | Run #255 |
-| **P0-04** | Enforcement boundary isolation and independent L5 | Passed | Run #255 |
-| **P0-05** | Concurrency safety and race condition defense | Passed | Run #255 |
-
----
-
-## CI/CD Continuous Integration Verification Protocol
-* **Automated Pipeline:** All adversarial and regression tests execute successfully.
-* **Latest Verified Build:** Run #251 (Logged and verified against live GitHub Actions)
+## Verification Protocol
+All adversarial and regression tests execute successfully.
+* Verified against live GitHub Actions (Run #262, Commit 0631918).
