@@ -1,8 +1,7 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v7)
-Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement 
-             and unified bundle creation & Authorized Session Registry validation.
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v8)
+Description: Strict Authorized Key Source enforcement with zero implicit fallbacks.
 ================================================================================
 """
 
@@ -12,35 +11,33 @@ import json
 import types
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع التحقق الإلزامي الصارم وسجل الجلسات الموثق (P0)."""
-    def __init__(self, node_id: str = None, master_secret: bytes = None, authorized_keys: list = None, **kwargs):
+    """محاكي نقل DTN للطبقة الخامسة مع التحقق الصارم والمطلق لمصدر المفاتيح الموثقة (P0)."""
+    def __init__(self, node_id: str = None, authorized_keys: list = None, **kwargs):
         _bundles = {}
         
-        default_secret = b"default_master_secret_32bytes_len!!"
-        active_master = master_secret or default_secret
-        
-        base_keys = list(authorized_keys) if authorized_keys else []
-        if active_master not in base_keys:
-            base_keys.append(active_master)
-        if default_secret not in base_keys:
-            base_keys.append(default_secret)
+        # فرض مصدر المفاتيح الموثقة بدقة دون أي تسريب أو مفاتيح افتراضية ضمنية
+        if not authorized_keys:
+            raise ValueError("Security Error: 'authorized_keys' source must be explicitly provided (Fail-Closed).")
         
         _state = {
             "node_id": node_id,
-            "master_secret": active_master,
-            "authorized_keys": set(base_keys),
+            "authorized_keys": set(authorized_keys),
             "link_status": "ONLINE"
         }
 
         def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None, session_key: bytes = None) -> dict:
+            # التحقق الفوري من أن المفتاح المستخدم ينتمي حصراً لمصدر المفاتيح الموثق
+            if session_key not in _state["authorized_keys"]:
+                raise PermissionError("Fail-Closed: Unauthorized session key source in create_bundle.")
+
             metadata = {
                 "bundle_id": bundle_id,
                 "destination": destination,
                 "protection_fields": protection_fields or {}
             }
-            secret = session_key or _state["master_secret"]
+            
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
+            bundle_hmac = hmac.new(session_key, canonical_data, hashlib.sha256).digest()
             
             bundle = {
                 "bundle_id": bundle_id,
@@ -52,6 +49,9 @@ class SovereignDTNTransportSimulator:
             return bundle
 
         def transmit_packet(bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None, session_key: bytes = None) -> bool:
+            if session_key not in _state["authorized_keys"]:
+                return False
+
             if custom_bundle is not None:
                 if not isinstance(custom_bundle, dict):
                     return False
@@ -66,7 +66,11 @@ class SovereignDTNTransportSimulator:
             if not bundle_id or not destination:
                 return False
 
-            bundle = create_bundle(bundle_id, destination, payload, session_key=session_key)
+            try:
+                bundle = create_bundle(bundle_id, destination, payload, session_key=session_key)
+            except PermissionError:
+                return False
+
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
             
@@ -74,12 +78,16 @@ class SovereignDTNTransportSimulator:
             return True
 
         def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
-            """تخزين وتوجيه الحزمة بشكل موثوق باستخدام دالة الإنشاء الموحدة."""
+            if session_key not in _state["authorized_keys"]:
+                return False
+
             bundle_id = f"bundle-{hashlib.sha256(str(payload).encode()).hexdigest()[:8]}"
             destination = destination_node or "default-dest"
             
-            # استخدام create_bundle لضمان تطابق البيانات الوصفية وHMAC تماماً
-            bundle = create_bundle(bundle_id, destination, payload, session_key=session_key)
+            try:
+                bundle = create_bundle(bundle_id, destination, payload, session_key=session_key)
+            except PermissionError:
+                return False
             
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
@@ -88,6 +96,9 @@ class SovereignDTNTransportSimulator:
             return True
 
         def verify_and_route_bundle(bundle: dict, session_key: bytes = None) -> bool:
+            if session_key not in _state["authorized_keys"]:
+                return False
+
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
                 return False
                 
@@ -96,24 +107,15 @@ class SovereignDTNTransportSimulator:
             provided_hmac = bundle.get("hmac")
             
             # --- P0.1 Enforcement: Strict Destination Consistency Check ---
-            top_destination = bundle.get("destination")
-            meta_destination = metadata.get("destination")
-            if top_destination != meta_destination:
+            if bundle.get("destination") != metadata.get("destination"):
                 return False  
 
             # --- P0.2 Enforcement: Strict Bundle ID Consistency Check ---
-            top_bundle_id = bundle.get("bundle_id")
-            meta_bundle_id = metadata.get("bundle_id")
-            if top_bundle_id != meta_bundle_id:
+            if bundle.get("bundle_id") != metadata.get("bundle_id"):
                 return False  
 
-            # --- P0.3 Enforcement: Trusted Session Registry Verification ---
-            target_key = session_key or _state["master_secret"]
-            if target_key not in _state["authorized_keys"]:
-                return False  # رفض إلزامي وفوري لأي مفتاح غير مسجل في السجل الموثق
-
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            expected_hmac = hmac.new(target_key, canonical_data, hashlib.sha256).digest()
+            expected_hmac = hmac.new(session_key, canonical_data, hashlib.sha256).digest()
             
             if not hmac.compare_digest(expected_hmac, provided_hmac):
                 return False
@@ -121,6 +123,9 @@ class SovereignDTNTransportSimulator:
             return True
 
         def flush_queue(session_key: bytes = None, **kwargs) -> list:
+            if session_key not in _state["authorized_keys"]:
+                return []
+                
             verified_transmitted = []
             for bundle_id, bundle in list(_bundles.items()):
                 if verify_and_route_bundle(bundle, session_key=session_key):
