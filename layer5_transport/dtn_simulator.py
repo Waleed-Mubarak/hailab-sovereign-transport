@@ -1,8 +1,8 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Single File)
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v4)
 Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement 
-             and closed session key injection vulnerability.
+             and secure session key handling (allowing valid parameters, blocking bundle injection).
 ================================================================================
 """
 
@@ -21,14 +21,15 @@ class SovereignDTNTransportSimulator:
             "link_status": "ONLINE"
         }
 
-        def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None) -> dict:
+        def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None, session_key: bytes = None) -> dict:
             metadata = {
                 "bundle_id": bundle_id,
                 "destination": destination,
                 "protection_fields": protection_fields or {}
             }
+            secret = session_key or _state["master_secret"]
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
+            bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
             
             bundle = {
                 "bundle_id": bundle_id,
@@ -44,9 +45,8 @@ class SovereignDTNTransportSimulator:
                 if not isinstance(custom_bundle, dict):
                     return False
                 
-                # التحقق الأمني الصارم أولاً قبل السماح بدخولها للطابور (Fail-closed)
                 if not verify_and_route_bundle(custom_bundle, session_key=session_key):
-                    return False  # رفض فوري وعدم تخزينها نهائياً
+                    return False  
                 
                 b_id = custom_bundle.get("bundle_id", "default_id")
                 _bundles[b_id] = custom_bundle
@@ -55,7 +55,7 @@ class SovereignDTNTransportSimulator:
             if not bundle_id or not destination:
                 return False
 
-            bundle = create_bundle(bundle_id, destination, payload)
+            bundle = create_bundle(bundle_id, destination, payload, session_key=session_key)
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
             
@@ -72,8 +72,8 @@ class SovereignDTNTransportSimulator:
                 "destination": destination,
             }
             
-            # --- P0 Fix: الاعتماد حصرياً على المفتاح الرئيسي الموثوق وعدم الثقة بمفاتيح خارجية ---
-            secret = _state["master_secret"]
+            # السماح بالمعامل الموثوق session_key مع الاحتفاظ بالافتراضي عند عدم توفره
+            secret = session_key or _state["master_secret"]
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
             
@@ -85,7 +85,7 @@ class SovereignDTNTransportSimulator:
                 "hmac": bundle_hmac
             }
             
-            # التحقق قبل الحفظ في الطابور
+            # التحقق قبل الحفظ في الطابور باستخدام نفس المفتاح الموثوق
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
                 
@@ -104,15 +104,16 @@ class SovereignDTNTransportSimulator:
             top_destination = bundle.get("destination")
             meta_destination = metadata.get("destination")
             if top_destination != meta_destination:
-                return False  # رفض فوري عند أي اختلاف في الوجهة
+                return False  
 
             # --- P0.2 Enforcement: Strict Bundle ID Consistency Check ---
             top_bundle_id = bundle.get("bundle_id")
             meta_bundle_id = metadata.get("bundle_id")
             if top_bundle_id != meta_bundle_id:
-                return False  # رفض فوري عند أي تلاعب في مُعرّف الحزمة
+                return False  
 
-            # --- P0 Fix: إزالة bundle.get("session_key") تماماً لمنع حقن مفاتيح الجلسات المجهولة ---
+            # --- P0 Fix: منع جلب أو الثقة بأي مفتاح من داخل الحزمة الواردة (bundle.get("session_key")) نهائياً ---
+            # الاعتماد فقط على المعامل الآمن أو المفتاح الرئيسي للمحطة
             secret = session_key or _state["master_secret"]
             
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
@@ -168,8 +169,8 @@ class SovereignDTNTransportSimulator:
     def queue_size(self):
         return self._engine["get_queue_size"]()
 
-    def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None):
-        return self._engine["create_bundle"](bundle_id, destination, payload, protection_fields)
+    def create_bundle(self, bundle_id: str, destination: str, payload: dict, protection_fields: dict = None, session_key: bytes = None):
+        return self._engine["create_bundle"](bundle_id, destination, payload, protection_fields, session_key=session_key)
 
     def transmit_packet(self, bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None, session_key: bytes = None):
         return self._engine["transmit_packet"](bundle_id, destination, payload, custom_bundle, session_key)
@@ -180,8 +181,8 @@ class SovereignDTNTransportSimulator:
     def flush_queue(self, session_key: bytes = None, **kwargs):
         return self._engine["flush_queue"](session_key=session_key, **kwargs)
 
-    def verify_and_route_bundle(self, bundle: dict):
-        return self._engine["verify_and_route_bundle"](bundle)
+    def verify_and_route_bundle(self, bundle: dict, session_key: bytes = None):
+        return self._engine["verify_and_route_bundle"](bundle, session_key=session_key)
 
     def check_duress_trigger(self, secret_pass, correct_hash):
         return self._engine["check_duress_trigger"](secret_pass, correct_hash)
