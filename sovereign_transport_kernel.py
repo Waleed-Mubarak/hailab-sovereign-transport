@@ -2,7 +2,7 @@
 ================================================================================
 Project: Hailab Sovereign Transport
 Component: SovereignTransportKernel & Layer5Transport & SovereignAuditVerifier
-Description: Complete Unified Defense-Grade Core (P0 Final Final Resolution)
+Description: Complete Unified Defense-Grade Core (P0 Final Fixed - No Defaults)
 ================================================================================
 """
 
@@ -61,10 +61,17 @@ class SecureQueueManager:
 
 
 class SovereignTransportKernel:
-    """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final RC)."""
-    def __init__(self, node_id: str = "node_default", master_secret: bytes = b"master_secret_key"):
+    """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final Secured)."""
+    def __init__(self, node_id: str = None, master_secret: bytes = None):
         super().__setattr__("_lock", threading.Lock())
         
+        # التحقق الصارم من توفر مفتاح رئيسي صريح (Fail-Closed Enforcement)
+        if not isinstance(master_secret, bytes) or len(master_secret) == 0:
+            raise ValueError("Security Error: A valid explicit 'master_secret' bytes key must be provided (Fail-Closed).")
+        
+        if not node_id:
+            raise ValueError("Security Error: A valid 'node_id' must be provided.")
+
         _state = {
             "node_id": node_id,
             "master_secret": master_secret,
@@ -201,7 +208,6 @@ class SovereignTransportKernel:
             meta_bundle_id = metadata.get("bundle_id", "")
             meta_destination = metadata.get("destination", "")
             
-            # P0.2 & P0.1 Checks
             if not bundle_id or not meta_bundle_id or bundle_id != meta_bundle_id:
                 record_audit_event("BUNDLE_ID_MISMATCH_REJECTED", {"bundle_id": bundle_id, "meta_id": meta_bundle_id})
                 return False
@@ -287,10 +293,6 @@ class SovereignTransportKernel:
 
 
 class Layer5Transport:
-    """
-    وحدة الطبقة الخامسة المستقلة - محصنة بالكامل ومطابقة لمعايير النواة (P0 Final).
-    مدعومة بـ MappingProxyType وحماية صارمة تمنع استبدال الوظائف في وقت التشغيل (P0.3).
-    """
     def __init__(self, kernel: SovereignTransportKernel):
         super().__setattr__("_kernel", kernel)
         engine_dict = {
@@ -312,7 +314,6 @@ class Layer5Transport:
             meta_b_id = metadata.get("bundle_id", "")
             meta_dst = metadata.get("destination", "")
 
-            # منع التلاعب بالمعرف والوجهة (P0.1 & P0.2)
             if not b_id or not meta_b_id or b_id != meta_b_id:
                 return False
             if not b_dst or not meta_dst or meta_dst != b_dst:
@@ -339,7 +340,6 @@ class Layer5Transport:
 
 
 class SovereignAuditVerifier:
-    """متحقق مستقل لسلسلة التدقيق والتجزئة المشفرة."""
     @staticmethod
     def verify_audit_chain(audit_trail: list) -> bool:
         if not isinstance(audit_trail, list) or not audit_trail:
