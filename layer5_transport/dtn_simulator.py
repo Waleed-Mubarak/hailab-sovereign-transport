@@ -141,6 +141,9 @@ class SovereignDTNTransportSimulator:
             return verified_transmitted
 
         def check_duress_trigger(secret_pass, correct_hash) -> bool:
+            if secret_pass is None or correct_hash is None:
+                return False
+                
             if isinstance(secret_pass, str):
                 secret_bytes = secret_pass.encode()
             elif isinstance(secret_pass, bytes):
@@ -149,6 +152,7 @@ class SovereignDTNTransportSimulator:
                 secret_bytes = str(secret_pass).encode()
                 
             computed_hash = hashlib.sha256(secret_bytes).digest()
+            
             if isinstance(correct_hash, str):
                 correct_bytes = correct_hash.encode()
             else:
