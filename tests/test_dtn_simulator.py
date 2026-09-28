@@ -36,7 +36,8 @@ class TestSovereignDTNTransportSimulator(unittest.TestCase):
 
     def test_duress_trigger_security(self):
         """التحقق من أن فحص هريس الإكراه آمن وصحيح ولا يفعل خطأً."""
-        simulator = SovereignDTNTransportSimulator(node_id="node-alpha")
+        session_key = b"space_secure_dtn_key_32bytes_len!!"
+        simulator = SovereignDTNTransportSimulator(node_id="node-alpha", authorized_keys=[session_key])
         
         secret_pass = "emergency_code_999"
         correct_hash = hashlib.sha256(secret_pass.encode()).digest()
@@ -49,7 +50,8 @@ class TestSovereignDTNTransportSimulator(unittest.TestCase):
 
     def test_security_attribute_protection(self):
         """التحقق من أن حراسة السمات تمنع التعديل المباشر تماماً."""
-        simulator = SovereignDTNTransportSimulator(node_id="node-alpha")
+        session_key = b"space_secure_dtn_key_32bytes_len!!"
+        simulator = SovereignDTNTransportSimulator(node_id="node-alpha", authorized_keys=[session_key])
         with self.assertRaises(AttributeError):
             simulator.link_status = "OFFLINE"
 
@@ -126,20 +128,20 @@ class TestSovereignDTNTransportSimulator(unittest.TestCase):
         attacker_session_key = b"attacker_malicious_key_32bytes_len!"
         malicious_payload = {"data": "attack_payload"}
         
-        # قيام المهاجم بإنشاء حزمة باستخدام مفتاحه الخاص
-        malicious_bundle = simulator.create_bundle(
-            bundle_id="bundle-attack-01",
-            destination="node-beta",
-            payload=malicious_payload,
-            session_key=attacker_session_key
-        )
+        # قيام المهاجم بمحاولة إنشاء حزمة بمفتاحه غير الموثوق (يجب أن ترمي PermissionError)
+        with self.assertRaises(PermissionError):
+            simulator.create_bundle(
+                bundle_id="bundle-attack-01",
+                destination="node-beta",
+                payload=malicious_payload,
+                session_key=attacker_session_key
+            )
         
         # محاولة إرسال الحزمة المشبوهة باستخدام مفتاح المهاجم غير الموثق
         success = simulator.transmit_packet(
             bundle_id="bundle-attack-01",
             destination="node-beta",
             payload={},
-            custom_bundle=malicious_bundle,
             session_key=attacker_session_key
         )
         
