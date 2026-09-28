@@ -20,7 +20,8 @@ print("--- Root Directory Contents ---")
 print(os.listdir(root_dir))
 print("-------------------------------")
 
-from dtn_topology_simulator import DTNNodeSimulator
+# الاستيراد من ملف sim الجديد لتجنب شوائب الرموز غير المرئية
+from sim import DTNNodeSimulator
 
 class TestSovereignDTNTopologySimulator(unittest.TestCase):
     
