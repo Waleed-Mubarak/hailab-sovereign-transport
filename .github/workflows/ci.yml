@@ -1,4 +1,4 @@
-Name: Sovereign Transport CI - Elite Defense Grade
+name: Sovereign Transport CI - Elite Defense Grade
 
 on:
   push:
