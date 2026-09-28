@@ -1,8 +1,8 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v6)
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v7)
 Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement 
-             and robust Authorized Session Registry including master/default secrets.
+             and unified bundle creation & Authorized Session Registry validation.
 ================================================================================
 """
 
@@ -16,11 +16,9 @@ class SovereignDTNTransportSimulator:
     def __init__(self, node_id: str = None, master_secret: bytes = None, authorized_keys: list = None, **kwargs):
         _bundles = {}
         
-        # تهيئة المفتاح الرئيسي الافتراضي
         default_secret = b"default_master_secret_32bytes_len!!"
         active_master = master_secret or default_secret
         
-        # دمج المفاتيح الموثقة مع التأكد من تضمين المفتاح الرئيسي لضمان عدم فشل التراجع
         base_keys = list(authorized_keys) if authorized_keys else []
         if active_master not in base_keys:
             base_keys.append(active_master)
@@ -76,26 +74,12 @@ class SovereignDTNTransportSimulator:
             return True
 
         def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
-            """تخزين وتوجيه الحزمة بشكل موثوق مع فرض سلامة البيانات الوصفية."""
+            """تخزين وتوجيه الحزمة بشكل موثوق باستخدام دالة الإنشاء الموحدة."""
             bundle_id = f"bundle-{hashlib.sha256(str(payload).encode()).hexdigest()[:8]}"
             destination = destination_node or "default-dest"
             
-            metadata = {
-                "bundle_id": bundle_id,
-                "destination": destination,
-            }
-            
-            secret = session_key or _state["master_secret"]
-            canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
-            
-            bundle = {
-                "bundle_id": bundle_id,
-                "destination": destination,
-                "metadata": metadata,
-                "payload": payload,
-                "hmac": bundle_hmac
-            }
+            # استخدام create_bundle لضمان تطابق البيانات الوصفية وHMAC تماماً
+            bundle = create_bundle(bundle_id, destination, payload, session_key=session_key)
             
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
