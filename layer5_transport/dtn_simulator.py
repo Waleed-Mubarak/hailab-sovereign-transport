@@ -1,8 +1,8 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v4)
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v5)
 Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement 
-             and secure session key handling (allowing valid parameters, blocking bundle injection).
+             and strict Authorized Session Registry (authorized_keys) validation.
 ================================================================================
 """
 
@@ -12,12 +12,18 @@ import json
 import types
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع التحقق الإلزامي الصارم لمنع تلاعب الوجهة ومعرف الحزمة (P0)."""
-    def __init__(self, node_id: str = None, master_secret: bytes = None, **kwargs):
+    """محاكي نقل DTN للطبقة الخامسة مع التحقق الإلزامي الصارم وسجل الجلسات الموثق (P0)."""
+    def __init__(self, node_id: str = None, master_secret: bytes = None, authorized_keys: list = None, **kwargs):
         _bundles = {}
+        
+        # تهيئة سجل الجلسات الموثق والمصدق عليه (Authorized Session Registry)
+        default_secret = master_secret or b"default_master_secret_32bytes_len!!"
+        valid_keys = authorized_keys or [default_secret]
+        
         _state = {
             "node_id": node_id,
-            "master_secret": master_secret or b"default_master_secret_32bytes_len!!",
+            "master_secret": default_secret,
+            "authorized_keys": set(valid_keys),
             "link_status": "ONLINE"
         }
 
@@ -72,7 +78,6 @@ class SovereignDTNTransportSimulator:
                 "destination": destination,
             }
             
-            # السماح بالمعامل الموثوق session_key مع الاحتفاظ بالافتراضي عند عدم توفره
             secret = session_key or _state["master_secret"]
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
@@ -85,7 +90,6 @@ class SovereignDTNTransportSimulator:
                 "hmac": bundle_hmac
             }
             
-            # التحقق قبل الحفظ في الطابور باستخدام نفس المفتاح الموثوق
             if not verify_and_route_bundle(bundle, session_key=session_key):
                 return False
                 
@@ -112,12 +116,13 @@ class SovereignDTNTransportSimulator:
             if top_bundle_id != meta_bundle_id:
                 return False  
 
-            # --- P0 Fix: منع جلب أو الثقة بأي مفتاح من داخل الحزمة الواردة (bundle.get("session_key")) نهائياً ---
-            # الاعتماد فقط على المعامل الآمن أو المفتاح الرئيسي للمحطة
-            secret = session_key or _state["master_secret"]
-            
+            # --- P0.3 Enforcement: Trusted Session Registry Verification ---
+            target_key = session_key or _state["master_secret"]
+            if target_key not in _state["authorized_keys"]:
+                return False  # رفض إلزامي وفوري لأي مفتاح غير مسجل في السجل الموثق
+
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
-            expected_hmac = hmac.new(secret, canonical_data, hashlib.sha256).digest()
+            expected_hmac = hmac.new(target_key, canonical_data, hashlib.sha256).digest()
             
             if not hmac.compare_digest(expected_hmac, provided_hmac):
                 return False
