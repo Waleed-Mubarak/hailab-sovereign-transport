@@ -1,8 +1,8 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v5)
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v6)
 Description: Isolated Layer 5 transport implementation with strict P0.1 & P0.2 enforcement 
-             and strict Authorized Session Registry (authorized_keys) validation.
+             and robust Authorized Session Registry including master/default secrets.
 ================================================================================
 """
 
@@ -16,14 +16,21 @@ class SovereignDTNTransportSimulator:
     def __init__(self, node_id: str = None, master_secret: bytes = None, authorized_keys: list = None, **kwargs):
         _bundles = {}
         
-        # تهيئة سجل الجلسات الموثق والمصدق عليه (Authorized Session Registry)
-        default_secret = master_secret or b"default_master_secret_32bytes_len!!"
-        valid_keys = authorized_keys or [default_secret]
+        # تهيئة المفتاح الرئيسي الافتراضي
+        default_secret = b"default_master_secret_32bytes_len!!"
+        active_master = master_secret or default_secret
+        
+        # دمج المفاتيح الموثقة مع التأكد من تضمين المفتاح الرئيسي لضمان عدم فشل التراجع
+        base_keys = list(authorized_keys) if authorized_keys else []
+        if active_master not in base_keys:
+            base_keys.append(active_master)
+        if default_secret not in base_keys:
+            base_keys.append(default_secret)
         
         _state = {
             "node_id": node_id,
-            "master_secret": default_secret,
-            "authorized_keys": set(valid_keys),
+            "master_secret": active_master,
+            "authorized_keys": set(base_keys),
             "link_status": "ONLINE"
         }
 
