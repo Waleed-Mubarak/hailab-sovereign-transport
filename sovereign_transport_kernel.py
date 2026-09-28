@@ -12,6 +12,7 @@ import time
 import json
 import threading
 import types
+import unittest
 
 class SecureNodeSet:
     """حاوية آمنة لعقد الشبكة مع دعم التزامن الكامل (Thread-Safety)."""
@@ -61,11 +62,11 @@ class SecureQueueManager:
 
 
 class SovereignTransportKernel:
-    """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final Secured)."""
+    """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final Secured - No Defaults)."""
     def __init__(self, node_id: str = None, master_secret: bytes = None):
         super().__setattr__("_lock", threading.Lock())
         
-        # التحقق الصارم من توفر مفتاح رئيسي صريح (Fail-Closed Enforcement)
+        # التحقق الصارم من توفر مفتاح رئيسي صريح (Fail-Closed Enforcement - No Defaults)
         if not isinstance(master_secret, bytes) or len(master_secret) == 0:
             raise ValueError("Security Error: A valid explicit 'master_secret' bytes key must be provided (Fail-Closed).")
         
@@ -376,3 +377,36 @@ class SovereignAuditVerifier:
             current_expected_prev_hash = recalculated_hash
 
         return True
+
+
+# --- Regression & Acceptance Unit Tests (P0 Final Compliance) ---
+class TestSovereignFinalBaseline(unittest.TestCase):
+    
+    def test_fail_closed_on_missing_master_secret(self):
+        """التحقق من أن النواة ترفض التهيئة كلياً ولا تستخدم أي افتراضيات عند غياب المفتاح."""
+        with self.assertRaises(ValueError):
+            SovereignTransportKernel(node_id="NODE-SECURE-01")
+            
+        with self.assertRaises(ValueError):
+            SovereignTransportKernel(node_id="NODE-SECURE-01", master_secret=b"")
+
+    def test_explicit_initialization_and_audit_chain(self):
+        """التحقق من صحة التشغيل بالبيانات الصريحة وسلامة سجل التدقيق."""
+        secret = b"EXPLICIT_PRODUCTION_SECRET_2026"
+        kernel = SovereignTransportKernel(node_id="NODE-SECURE-01", master_secret=secret)
+        
+        kernel.register_node("NODE-SECURE-01")
+        kernel.register_node("NODE-SECURE-02")
+        
+        # إنشاء ونقل حبة بيانات (Bundle)
+        bundle = kernel.create_bundle("BNDL-999", "NODE-SECURE-02", {"sensor": "telemetry"})
+        self.assertTrue(kernel.verify_and_route_bundle(bundle))
+        
+        # التحقق من سلامة سلسلة التدقيق
+        audit_trail = kernel.audit_trail
+        self.assertTrue(SovereignAuditVerifier.verify_audit_chain(audit_trail))
+
+
+if __name__ == "__main__":
+    print("--- Running Hailab Sovereign Transport P0 Final Validation ---")
+    unittest.main(argv=[''], exit=False)
