@@ -33,4 +33,4 @@ jobs:
 
       - name: Execute Full Security Regression and Pytest Suite
         run: |
-          pytest -v --strict-markers
+          PYTHONPATH=. pytest -v --strict-markers
