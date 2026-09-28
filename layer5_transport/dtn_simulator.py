@@ -15,20 +15,27 @@ class SovereignDTNTransportSimulator:
     def __init__(self, node_id: str = None, authorized_keys: list = None, **kwargs):
         _bundles = {}
         
+        # دالة مساعدة داخلية للتحقق من صحة ونوع وحجم المفتاح التشفيري
+        def _is_valid_key(key):
+            return isinstance(key, bytes) and len(key) > 0
+
+        # تنقية وفلترة المفاتيح الموثقة للتأكد من صحتها برمجياً
+        valid_authorized_keys = {k for k in (authorized_keys or []) if _is_valid_key(k)}
+        
         # فرض مصدر المفاتيح الموثقة بدقة دون أي تسريب أو مفاتيح افتراضية ضمنية
-        if not authorized_keys:
-            raise ValueError("Security Error: 'authorized_keys' source must be explicitly provided (Fail-Closed).")
+        if not valid_authorized_keys:
+            raise ValueError("Security Error: A valid 'authorized_keys' source must be explicitly provided (Fail-Closed).")
         
         _state = {
             "node_id": node_id,
-            "authorized_keys": set(authorized_keys),
+            "authorized_keys": valid_authorized_keys,
             "link_status": "ONLINE"
         }
 
         def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None, session_key: bytes = None) -> dict:
-            # التحقق الفوري من أن المفتاح المستخدم ينتمي حصراً لمصدر المفاتيح الموثق
-            if session_key not in _state["authorized_keys"]:
-                raise PermissionError("Fail-Closed: Unauthorized session key source in create_bundle.")
+            # التحقق الفوري من صحة المفتاح وانتمائه حصراً لمصدر المفاتيح الموثق
+            if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
+                raise PermissionError("Fail-Closed: Unauthorized or invalid session key source in create_bundle.")
 
             metadata = {
                 "bundle_id": bundle_id,
@@ -49,7 +56,7 @@ class SovereignDTNTransportSimulator:
             return bundle
 
         def transmit_packet(bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None, session_key: bytes = None) -> bool:
-            if session_key not in _state["authorized_keys"]:
+            if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
                 return False
 
             if custom_bundle is not None:
@@ -78,7 +85,7 @@ class SovereignDTNTransportSimulator:
             return True
 
         def store_and_forward_packet(payload, destination_node: str = None, session_key: bytes = None, **kwargs) -> bool:
-            if session_key not in _state["authorized_keys"]:
+            if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
                 return False
 
             bundle_id = f"bundle-{hashlib.sha256(str(payload).encode()).hexdigest()[:8]}"
@@ -96,7 +103,7 @@ class SovereignDTNTransportSimulator:
             return True
 
         def verify_and_route_bundle(bundle: dict, session_key: bytes = None) -> bool:
-            if session_key not in _state["authorized_keys"]:
+            if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
                 return False
 
             if not isinstance(bundle, dict) or "metadata" not in bundle or "hmac" not in bundle:
@@ -123,7 +130,7 @@ class SovereignDTNTransportSimulator:
             return True
 
         def flush_queue(session_key: bytes = None, **kwargs) -> list:
-            if session_key not in _state["authorized_keys"]:
+            if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
                 return []
                 
             verified_transmitted = []
