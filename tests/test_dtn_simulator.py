@@ -10,8 +10,8 @@ import sys
 import os
 import hashlib
 
-# إضافة جذر المشروع إلى مسار بايثون لضمان التوافق مع الـ CI
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+# إضافة المجلد الرئيسي للمشروع (Root) إلى مسار بايثون لضمان رؤية الملفات وسحبها بنجاح
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from dtn_topology_simulator import DTNNodeSimulator
 
