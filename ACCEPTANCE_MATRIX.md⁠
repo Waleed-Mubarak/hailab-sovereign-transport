@@ -1,21 +1,20 @@
-# Kernel Acceptance Matrix
-# Sovereign Transport
-# Final Security Evaluation
-# Dr. Hikmet / Meryemov
+# Acceptance Matrix - Sovereign Transport & DTN Simulator
+## Layer 5 Security Evaluation
+**Reviewer/Approver:** Dr. Hikmat M. Karimov
 
-## Security Capabilities & Requirements
+### Security Vulnerabilities & Requirements
 
-| Technical Description / Vulnerability | Status | Verified Run |
+| Description / Vulnerability | Status | Verified Run |
 | :--- | :--- | :--- |
-| TCB isolation and TCB protection | Passed | Run #262 |
-| Fail-Closed response under fault | Passed | Run #262 |
-| Cryptographic audit trail integrity & MappingProxyType | Passed | Run #262 |
-| TCB boundary isolation and independent L5 | Passed | Run #262 |
-| Memory safety and race condition defense | Passed | Run #262 |
-| P0.1 Destination consistency check | Passed | Run #262 |
-| P0.2 Bundle ID consistency check | Passed | Run #262 |
-| P0.3 Trusted Session Registry & Untrusted Key Rejection | Passed | Run #262 |
+| TCB isolation and TCB protection | Passed | Run #267 |
+| Fail-Closed response under fault | Passed | Run #267 |
+| Audit trail integrity & MappingProxyType | Passed | Run #267 |
+| Namespace isolation and independent L5 | Passed | Run #267 |
+| Concurrency and race condition defense | Passed | Run #267 |
+| P0.1 Destination consistency check | Passed | Run #267 |
+| P0.2 Bundle ID consistency check | Passed | Run #267 |
+| P0.3 Session Registry & Untrusted Key Rejection | Passed | Run #267 |
 
-## Verification Protocol
-All adversarial and regression tests execute successfully.
-* Verified against live GitHub Actions (Run #262, Commit 0631918).
+### Verification Protocol
+- All security and regression tests execute successfully.
+- Verified against live GitHub Actions (Run #267).
