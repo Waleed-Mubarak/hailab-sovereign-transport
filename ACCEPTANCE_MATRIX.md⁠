@@ -1,20 +1,21 @@
 # Acceptance Matrix - Sovereign Transport & DTN Simulator
-## Layer 5 Security Evaluation
+## Layer 5 & Core Security Evaluation
 **Reviewer/Approver:** Dr. Hikmat M. Karimov
 
 ### Security Vulnerabilities & Requirements
 
 | Description / Vulnerability | Status | Verified Run |
 | :--- | :--- | :--- |
-| TCB isolation and TCB protection | Passed | Run #267 |
-| Fail-Closed response under fault | Passed | Run #267 |
-| Audit trail integrity & MappingProxyType | Passed | Run #267 |
-| Namespace isolation and independent L5 | Passed | Run #267 |
-| Concurrency and race condition defense | Passed | Run #267 |
-| P0.1 Destination consistency check | Passed | Run #267 |
-| P0.2 Bundle ID consistency check | Passed | Run #267 |
-| P0.3 Session Registry & Untrusted Key Rejection | Passed | Run #267 |
+| TCB isolation and TCB protection | Passed | Run #270[span_2](start_span)[span_2](end_span) |
+| Fail-Closed response under fault | Passed | Run #270[span_3](start_span)[span_3](end_span) |
+| Audit trail integrity & MappingProxyType | Passed | Run #270[span_4](start_span)[span_4](end_span) |
+| Namespace isolation and independent L5 | Passed | Run #270[span_5](start_span)[span_5](end_span) |
+| Concurrency and race condition defense | Passed | Run #270[span_6](start_span)[span_6](end_span) |
+| P0.1 Destination consistency check | Passed | Run #270[span_7](start_span)[span_7](end_span) |
+| P0.2 Bundle ID consistency check | Passed | Run #270[span_8](start_span)[span_8](end_span) |
+| P0.3 Session Registry & Untrusted Key Rejection | Passed | Run #270[span_9](start_span)[span_9](end_span) |
+| Zero-Default / Explicit Master Secret Enforcement | Passed | Run #270[span_10](start_span)[span_10](end_span) |
 
 ### Verification Protocol
-- All security and regression tests execute successfully.
-- Verified against live GitHub Actions (Run #267).
+* All security and regression tests execute successfully.
+* Verified against live GitHub Actions (Run #270)[span_11](start_span)[span_11](end_span).
