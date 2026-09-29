@@ -7,10 +7,15 @@ Description: Simulates multi-hop DTN routing integrated with cryptographic verif
 """
 
 import logging
-try:
-    from cryptographic_security_layer import SovereignCryptoLayer
-except ImportError:
-    from .cryptographic_security_layer import SovereignCryptoLayer
+import sys
+import os
+
+# Ensure the root directory is in sys.path to allow absolute imports in any execution context
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+from cryptographic_security_layer import SovereignCryptoLayer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
