@@ -1,1 +1,45 @@
+"""
+=============================================================
+Project: Hailab Sovereign Transport
+Component: WP3 Cryptographic Security Layer
+Description: Implements secure bundle signing, verification, and fail-closed cryptographic checks.
+=============================================================
+"""
+
+import hashlib
+import hmac
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+class SovereignCryptoLayer:
+    def __init__(self, master_key: bytes = b"HAILAB_SECURE_MASTER_KEY_2026"):
+        self.master_key = master_key
+        logging.info("Sovereign Cryptographic Security Layer initialized successfully.")
+
+    def sign_bundle(self, payload: bytes) -> bytes:
+        """Generate a cryptographic HMAC signature for the bundle payload."""
+        signature = hmac.new(self.master_key, payload, hashlib.sha256).digest()
+        return signature
+
+    def verify_bundle(self, payload: bytes, signature: bytes) -> bool:
+        """
+        Verify bundle integrity using cryptographic signature.
+        Enforces Fail-Closed: any mismatch or tampering immediately results in False.
+        """
+        if not payload or not signature:
+            logging.warning("Fail-closed triggered: Empty payload or signature detected.")
+            return False
+
+        expected_signature = self.sign_bundle(payload)
+        
+        # Use constant-time comparison to prevent timing attacks
+        is_valid = hmac.compare_digest(expected_signature, signature)
+        
+        if is_valid:
+            logging.info("Cryptographic verification PASSED: Bundle integrity confirmed.")
+            return True
+        else:
+            logging.error("Fail-closed triggered: Cryptographic signature mismatch! Bundle rejected.")
+            return False
 
