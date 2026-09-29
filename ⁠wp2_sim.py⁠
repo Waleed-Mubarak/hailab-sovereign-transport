@@ -1,1 +1,52 @@
+"""
+=============================================================
+Project: Hailab Sovereign Transport
+Component: WP2 Distributed Multi-Node DTN Simulation
+Description: Simulates multi-node routing, link drops, and fail-closed behavior.
+=============================================================
+"""
+
+import time
+import logging
+from sim import DTNNodeSimulator
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+class DistributedNetworkTest:
+    def __init__(self):
+        logging.info("Initializing WP2 Distributed Network Simulation Environment...")
+        self.nodes = {}
+
+    def deploy_node(self, node_id: str):
+        """Deploy a simulated sovereign DTN node."""
+        node = DTNNodeSimulator(node_id)
+        self.nodes[node_id] = node
+        logging.info(f"Node deployed securely: {node_id}")
+        return node
+
+    def simulate_transmission(self, source_id: str, dest_id: str, payload: bytes):
+        """Simulate a transmission between nodes under DTN conditions."""
+        logging.info(f"Attempting transmission from {source_id} to {dest_id}...")
+        if source_id in self.nodes and dest_id in self.nodes:
+            # Enforcing strict validation and fail-closed check
+            success = self.nodes[source_id].transport.transmit_bundle(dest_id, payload)
+            if success:
+                logging.info(f"Transmission successful between {source_id} and {dest_id}.")
+            else:
+                logging.warning(f"Transmission rejected or failed (Fail-closed triggered) for {source_id} -> {dest_id}.")
+            return success
+        else:
+            logging.error("Transmission failed: Invalid source or destination node.")
+            return False
+
+if __name__ == "__main__":
+    net_sim = DistributedNetworkTest()
+    
+    # Deploying test nodes
+    node_a = net_sim.deploy_node("HAILAB-NODE-ALPHA")
+    node_b = net_sim.deploy_node("HAILAB-NODE-BETA")
+    
+    # Testing secure bundle transmission
+    test_payload = b"Sovereign-DTN-WP2-Secure-Payload"
+    net_sim.simulate_transmission("HAILAB-NODE-ALPHA", "HAILAB-NODE-BETA", test_payload)
 
