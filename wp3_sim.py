@@ -62,4 +62,3 @@ class SovereignMultiHopSimulation:
 
         logging.info("Hop 2 (RELAY -> OMEGA) PASSED: Bundle securely delivered to destination.")
         return True
-
