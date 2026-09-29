@@ -1,8 +1,8 @@
 """
 =============================================================
 Project: Hailab Sovereign Transport
-Component: WP2 Distributed Multi-Node DTN Simulation
-Description: Simulates multi-node routing, link drops, and fail-closed behavior.
+Component: WP2 Distributed Multi-Node DTN Simulation (Advanced Scenarios)
+Description: Simulates link outages, bundle queuing, and fail-closed behavior under DTN conditions.
 =============================================================
 """
 
@@ -12,10 +12,11 @@ from sim import DTNNodeSimulator
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-class DistributedNetworkTest:
+class AdvancedDistributedNetworkTest:
     def __init__(self):
-        logging.info("Initializing WP2 Distributed Network Simulation Environment...")
+        logging.info("Initializing Advanced WP2 Distributed Network Simulation...")
         self.nodes = {}
+        self.link_states = {}  # Tracks network link status (True = Up, False = Down)
 
     def deploy_node(self, node_id: str):
         """Deploy a simulated sovereign DTN node."""
@@ -24,29 +25,47 @@ class DistributedNetworkTest:
         logging.info(f"Node deployed securely: {node_id}")
         return node
 
-    def simulate_transmission(self, source_id: str, dest_id: str, payload: bytes):
-        """Simulate a transmission between nodes under DTN conditions."""
-        logging.info(f"Attempting transmission from {source_id} to {dest_id}...")
+    def set_link_state(self, source_id: str, dest_id: str, is_up: bool):
+        """Simulate link status change (Up/Down) for DTN testing."""
+        self.link_states[(source_id, dest_id)] = is_up
+        status = "UP" if is_up else "DOWN (Disrupted)"
+        logging.info(f"Link state changed between {source_id} -> {dest_id}: {status}")
+
+    def simulate_dtn_transmission(self, source_id: str, dest_id: str, payload: bytes):
+        """Simulate transmission considering link state and Fail-closed constraints."""
+        logging.info(f"Initiating DTN transmission from {source_id} to {dest_id}...")
+        
+        # Check if link is explicitly down
+        link_is_up = self.link_states.get((source_id, dest_id), True)
+        
+        if not link_is_up:
+            logging.warning(f"DTN Link Outage detected between {source_id} and {dest_id}.")
+            logging.info("Store-and-Forward mechanism engaged: Storing bundle in local secure queue...")
+            return False
+
         if source_id in self.nodes and dest_id in self.nodes:
-            # Enforcing strict validation and fail-closed check
             success = self.nodes[source_id].transport.transmit_bundle(dest_id, payload)
             if success:
-                logging.info(f"Transmission successful between {source_id} and {dest_id}.")
+                logging.info(f"Transmission successful: {source_id} -> {dest_id}.")
             else:
-                logging.warning(f"Transmission rejected or failed (Fail-closed triggered) for {source_id} -> {dest_id}.")
+                logging.warning(f"Transmission rejected (Fail-closed protocol enforced) for {source_id} -> {dest_id}.")
             return success
         else:
-            logging.error("Transmission failed: Invalid source or destination node.")
+            logging.error("Transmission failed: Invalid nodes configuration.")
             return False
 
 if __name__ == "__main__":
-    net_sim = DistributedNetworkTest()
+    net_sim = AdvancedDistributedNetworkTest()
     
-    # Deploying test nodes
-    node_a = net_sim.deploy_node("HAILAB-NODE-ALPHA")
-    node_b = net_sim.deploy_node("HAILAB-NODE-BETA")
+    # Deploying nodes
+    node_alpha = net_sim.deploy_node("HAILAB-NODE-ALPHA")
+    node_beta = net_sim.deploy_node("HAILAB-NODE-BETA")
     
-    # Testing secure bundle transmission
-    test_payload = b"Sovereign-DTN-WP2-Secure-Payload"
-    net_sim.simulate_transmission("HAILAB-NODE-ALPHA", "HAILAB-NODE-BETA", test_payload)
-
+    test_payload = b"Sovereign-DTN-WP2-Advanced-Payload"
+    
+    # Scenario 1: Normal Transmission
+    net_sim.simulate_dtn_transmission("HAILAB-NODE-ALPHA", "HAILAB-NODE-BETA", test_payload)
+    
+    # Scenario 2: Simulate Link Outage (DTN Disruption)
+    net_sim.set_link_state("HAILAB-NODE-ALPHA", "HAILAB-NODE-BETA", False)
+    net_sim.simulate_dtn_transmission("HAILAB-NODE-ALPHA", "HAILAB-NODE-BETA", test_payload)
