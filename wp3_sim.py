@@ -7,7 +7,10 @@ Description: Simulates multi-hop DTN routing integrated with cryptographic verif
 """
 
 import logging
-from cryptographic_security_layer import SovereignCryptoLayer
+try:
+    from cryptographic_security_layer import SovereignCryptoLayer
+except ImportError:
+    from .cryptographic_security_layer import SovereignCryptoLayer
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
