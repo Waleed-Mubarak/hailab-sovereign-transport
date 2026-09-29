@@ -1,1 +1,25 @@
+# WP3: Multi-Hop Routing & Sovereign Cryptographic Layer - Technical Report
+
+## 1. Executive Summary
+Work Package 3 (WP3) establishes the multi-hop routing capabilities and sovereign cryptographic verification layer for the Hailab Sovereign Transport DTN protocol. Operating under strict **Fail-Closed** security logic, this module ensures that intermediate relay nodes cryptographically verify bundle integrity at every hop and abort transmission immediately upon link degradation or signature mismatch.
+
+---
+
+## 2. Core Architecture & Components
+* **`SovereignCryptoLayer`**: Implements HMAC-SHA256 based cryptographic signing and verification (`sign_bundle`, `verify_bundle`) anchored to the baseline master key `HAILAB_CERTIFIED_BASELINE_v1`.
+* **`SovereignMultiHopSimulation` (`wp3_sim.py`)**: Simulates a defense-grade multi-hop topology (`NODE-ALPHA` -> `NODE-RELAY` -> `NODE-OMEGA`) with dynamic link-state monitoring.
+* **Fail-Closed Enforcement**: Guarantees that if any link state drops (`DOWN`) or verification fails, the transmission is aborted, preventing unauthorized packet forwarding.
+
+---
+
+## 3. Verification & CI/CD Results
+* **Automated Unit Testing**: Validated via `tests/test_wp3_sim.py` covering:
+  1. Simulation environment initialization and node topology.
+  2. Successful multi-hop transmission across active links.
+  3. Fail-closed activation on first-hop outage (`ALPHA -> RELAY`).
+  4. Fail-closed activation on second-hop outage (`RELAY -> OMEGA`).
+* **CI/CD Integration**: Fully integrated and verified under GitHub Actions workflow, passing all security regressions successfully.
+
+---
+*Certified under Hailab Sovereign Defense Standards.*
 
