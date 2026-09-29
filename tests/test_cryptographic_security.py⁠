@@ -1,1 +1,44 @@
+"""
+=============================================================
+Project: Hailab Sovereign Transport
+Component: WP3 Unit Tests for Cryptographic Security Layer
+Description: Validates bundle signing, cryptographic verification, and fail-closed handling.
+=============================================================
+"""
+
+import pytest
+from cryptographic_security_layer import SovereignCryptoLayer
+
+def test_crypto_initialization():
+    """Verify that the crypto layer initializes correctly."""
+    crypto = SovereignCryptoLayer()
+    assert crypto.master_key is not None
+
+def test_valid_bundle_signature_and_verification():
+    """Verify that valid bundles pass cryptographic verification."""
+    crypto = SovereignCryptoLayer()
+    payload = b"Sovereign-WP3-Secure-Payload"
+    
+    signature = crypto.sign_bundle(payload)
+    is_valid = crypto.verify_bundle(payload, signature)
+    
+    assert is_valid is True, "Valid bundle cryptographic verification failed!"
+
+def test_fail_closed_on_tampered_bundle():
+    """Verify that tampering with the payload triggers fail-closed security rejection."""
+    crypto = SovereignCryptoLayer()
+    payload = b"Sovereign-WP3-Secure-Payload"
+    tampered_payload = b"Sovereign-WP3-TAMPERED-Payload"
+    
+    signature = crypto.sign_bundle(payload)
+    
+    # Verify using the tampered payload with the original signature
+    is_valid = crypto.verify_bundle(tampered_payload, signature)
+    
+    assert is_valid is False, "Security breach: Tampered bundle was incorrectly accepted!"
+
+def test_fail_closed_on_empty_inputs():
+    """Verify that empty inputs immediately trigger fail-closed response."""
+    crypto = SovereignCryptoLayer()
+    assert crypto.verify_bundle(b"", b"") is False
 
