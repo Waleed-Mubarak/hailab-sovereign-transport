@@ -6,15 +6,6 @@ Description: Validates multi-hop routing paths, link state failures, and fail-cl
 =============================================================
 """
 
-import sys
-import os
-
-# Add project root directory to sys.path to ensure absolute imports resolve correctly in pytest
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
-
 import pytest
 from wp3_sim import SovereignMultiHopSimulation
 
