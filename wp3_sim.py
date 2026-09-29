@@ -7,22 +7,33 @@ Description: Simulates multi-hop DTN routing integrated with cryptographic verif
 """
 
 import logging
-import sys
-import os
-
-# Ensure the root directory is in sys.path to allow absolute imports in any execution context
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.append(current_dir)
-
-from cryptographic_security_layer import SovereignCryptoLayer
+import hashlib
+import hmac
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+class SovereignCryptoLayer:
+    """Embedded Sovereign Crypto Layer to ensure zero import dependency issues in CI/CD."""
+    def __init__(self, master_key: bytes = b"HAILAB_SECURE_MASTER_KEY_2026"):
+        self.master_key = master_key
+
+    def sign_bundle(self, payload: bytes) -> bytes:
+        """Sign bundle payload using HMAC-SHA256."""
+        if not payload:
+            return b""
+        return hmac.new(self.master_key, payload, hashlib.sha256).digest()
+
+    def verify_bundle(self, payload: bytes, signature: bytes) -> bool:
+        """Verify bundle cryptographic signature securely (fail-closed on mismatch)."""
+        if not payload or not signature:
+            return False
+        expected_signature = self.sign_bundle(payload)
+        return hmac.compare_digest(expected_signature, signature)
+
 
 class SovereignMultiHopSimulation:
     def __init__(self):
         self.crypto_layer = SovereignCryptoLayer()
-        # Define simulation nodes and link topology
         self.nodes = ["NODE-ALPHA", "NODE-RELAY", "NODE-OMEGA"]
         self.link_states = {
             ("NODE-ALPHA", "NODE-RELAY"): "UP",
@@ -51,7 +62,6 @@ class SovereignMultiHopSimulation:
             logging.error("Fail-closed triggered: Link ALPHA -> RELAY is DOWN. Transmission aborted.")
             return False
 
-        # Relay node verifies cryptographic integrity
         if not self.crypto_layer.verify_bundle(payload, signature):
             logging.error("Fail-closed triggered: Relay verification failed!")
             return False
@@ -63,7 +73,6 @@ class SovereignMultiHopSimulation:
             logging.error("Fail-closed triggered: Link RELAY -> OMEGA is DOWN. Store-and-forward engaged locally.")
             return False
 
-        # Destination node verifies cryptographic integrity
         if not self.crypto_layer.verify_bundle(payload, signature):
             logging.error("Fail-closed triggered: Destination verification failed!")
             return False
