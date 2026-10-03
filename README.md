@@ -44,8 +44,6 @@ To run tests and verify system integrity:
 ```bash
 python -m pytest tests/
 
----
-
 ## License
 
 Distributed under the MIT License.
