@@ -1,15 +1,21 @@
 import hmac
 import hashlib
 import time
+import types
 
 class SovereignSessionController:
     """إدارة الجلسات للطبقة الثانية بالمعيار المؤسسي المحصّن (Enterprise-Grade)."""
     def __init__(self, node_id: str = None, session_encryption_key: bytes = None):
+        # إلغاء المفتاح الافتراضي وفرض المفتاح الصريح (إصلاح ثغرة L2-C1 / P0.3)
+        if not isinstance(session_encryption_key, bytes) or len(session_encryption_key) == 0:
+            raise ValueError("Fail-Closed: Explicit session_encryption_key required.")
+
         _sessions = {}
-        _state = {
+        # تغليف الحالة الحساسة لمنع التعديل الخارجي المباشر
+        _state = types.MappingProxyType({
             "node_id": node_id,
-            "session_encryption_key": session_encryption_key or b"default_secure_key_32bytes_len!!"
-        }
+            "session_encryption_key": session_encryption_key
+        })
 
         def create_session(session_id: str, secret_key: bytes) -> bool:
             if session_id in _sessions:
@@ -45,11 +51,9 @@ class SovereignSessionController:
             return hmac.compare_digest(expected_token, token)
 
         def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None, **kwargs) -> bool:
-            # 1. التحقق الإلزامي من وجود المدخلات لمنع التجاوز
             if session_token is None or incoming_state is None or incoming_signature is None:
                 return False
                 
-            # 2. البحث الآمن عن الجلسة النشطة المطابقة لرمز الجلسة
             target_session = None
             for s_id, s_info in _sessions.items():
                 if not s_info["active"]:
@@ -62,12 +66,10 @@ class SovereignSessionController:
             if target_session is None:
                 return False
                 
-            # 3. حماية مؤسسية: التحقق من العداد التصاعدي لمنع هجمات إعادة التشغيل (Replay Attacks)
             incoming_counter = incoming_state.get("counter", 0)
             if incoming_counter <= target_session["last_counter"]:
-                return False  # رفض الطلبات القديمة أو المكررة فوراً
+                return False
                 
-            # 4. التحقق الصارم من التوقيع الرقمي لمنع التلاعب بالحالة
             key = target_session["secret_key"]
             payload = str(incoming_state).encode('utf-8')
             expected_signature = hmac.new(key, payload, hashlib.sha256).digest()
@@ -75,7 +77,6 @@ class SovereignSessionController:
             if not hmac.compare_digest(expected_signature, incoming_signature):
                 return False
             
-            # 5. اعتماد الحالة وتحديث العداد التصاعدي بأمان تام
             target_session["last_counter"] = incoming_counter
             target_session["initial_state"] = incoming_state
             return True
@@ -86,13 +87,13 @@ class SovereignSessionController:
                 return True
             return False
 
-        self._engine = {
+        self._engine = types.MappingProxyType({
             "create_session": create_session,
             "create_secure_session": create_secure_session,
             "validate_session_token": validate_session_token,
             "validate_and_update_state": validate_and_update_state,
             "terminate_session": terminate_session
-        }
+        })
 
     def create_session(self, session_id: str, secret_key: bytes):
         return self._engine["create_session"](session_id, secret_key)
