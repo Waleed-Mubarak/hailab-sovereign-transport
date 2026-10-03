@@ -1,7 +1,7 @@
 """
 ================================================================================
-Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final v8)
-Description: Strict Authorized Key Source enforcement with zero implicit fallbacks.
+Component: Layer5 Transport & DTN Simulator (P0 Security Hardened - Final Certified v9)
+Description: Strict Authorized Key Source and Internal Duress Hash Boundary enforcement.
 ================================================================================
 """
 
@@ -11,29 +11,29 @@ import json
 import types
 
 class SovereignDTNTransportSimulator:
-    """محاكي نقل DTN للطبقة الخامسة مع التحقق الصارم والمطلق لمصدر المفاتيح الموثقة (P0)."""
-    def __init__(self, node_id: str = None, authorized_keys: list = None, **kwargs):
+    """محاكي نقل DTN للطبقة الخامسة مع التحقق الصارم والمطلق ومقاومة الإكراه السيادية."""
+    def __init__(self, node_id: str = None, authorized_keys: list = None, stored_duress_hash: bytes = None, **kwargs):
         _bundles = {}
         
-        # دالة مساعدة داخلية للتحقق من صحة ونوع وحجم المفتاح التشفيري
         def _is_valid_key(key):
             return isinstance(key, bytes) and len(key) > 0
 
-        # تنقية وفلترة المفاتيح الموثقة للتأكد من صحتها برمجياً
         valid_authorized_keys = {k for k in (authorized_keys or []) if _is_valid_key(k)}
         
-        # فرض مصدر المفاتيح الموثقة بدقة دون أي تسريب أو مفاتيح افتراضية ضمنية
         if not valid_authorized_keys:
             raise ValueError("Security Error: A valid 'authorized_keys' source must be explicitly provided (Fail-Closed).")
         
-        _state = {
+        if not isinstance(stored_duress_hash, bytes) or len(stored_duress_hash) == 0:
+            raise ValueError("Fail-Closed: Explicit internal 'stored_duress_hash' required for duress shield.")
+
+        _state = types.MappingProxyType({
             "node_id": node_id,
             "authorized_keys": valid_authorized_keys,
+            "stored_duress_hash": stored_duress_hash,
             "link_status": "ONLINE"
-        }
+        })
 
         def create_bundle(bundle_id: str, destination: str, payload: dict, protection_fields: dict = None, session_key: bytes = None) -> dict:
-            # التحقق الفوري من صحة المفتاح وانتمائه حصراً لمصدر المفاتيح الموثق
             if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
                 raise PermissionError("Fail-Closed: Unauthorized or invalid session key source in create_bundle.")
 
@@ -46,26 +46,21 @@ class SovereignDTNTransportSimulator:
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             bundle_hmac = hmac.new(session_key, canonical_data, hashlib.sha256).digest()
             
-            bundle = {
+            return {
                 "bundle_id": bundle_id,
                 "destination": destination,
                 "metadata": metadata,
                 "payload": payload,
                 "hmac": bundle_hmac
             }
-            return bundle
 
         def transmit_packet(bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None, session_key: bytes = None) -> bool:
             if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
                 return False
 
             if custom_bundle is not None:
-                if not isinstance(custom_bundle, dict):
-                    return False
-                
-                if not verify_and_route_bundle(custom_bundle, session_key=session_key):
+                if not isinstance(custom_bundle, dict) or not verify_and_route_bundle(custom_bundle, session_key=session_key):
                     return False  
-                
                 b_id = custom_bundle.get("bundle_id", "default_id")
                 _bundles[b_id] = custom_bundle
                 return True
@@ -113,21 +108,15 @@ class SovereignDTNTransportSimulator:
             payload = bundle.get("payload", {})
             provided_hmac = bundle.get("hmac")
             
-            # --- P0.1 Enforcement: Strict Destination Consistency Check ---
             if bundle.get("destination") != metadata.get("destination"):
                 return False  
-
-            # --- P0.2 Enforcement: Strict Bundle ID Consistency Check ---
             if bundle.get("bundle_id") != metadata.get("bundle_id"):
                 return False  
 
             canonical_data = json.dumps({"metadata": metadata, "payload": payload}, sort_keys=True).encode()
             expected_hmac = hmac.new(session_key, canonical_data, hashlib.sha256).digest()
             
-            if not hmac.compare_digest(expected_hmac, provided_hmac):
-                return False
-                
-            return True
+            return hmac.compare_digest(expected_hmac, provided_hmac)
 
         def flush_queue(session_key: bytes = None, **kwargs) -> list:
             if not _is_valid_key(session_key) or session_key not in _state["authorized_keys"]:
@@ -140,25 +129,16 @@ class SovereignDTNTransportSimulator:
             _bundles.clear()
             return verified_transmitted
 
-        def check_duress_trigger(secret_pass, correct_hash) -> bool:
-            if secret_pass is None or correct_hash is None:
+        def check_duress_trigger(secret_pass) -> bool:
+            """التحقق الآمن من رمز الإكراه بالاعتماد حصرياً على الهاش المخزن داخلياً (إصلاح L5-C6 وحدود الثقة)."""
+            if secret_pass is None:
                 return False
                 
-            if isinstance(secret_pass, str):
-                secret_bytes = secret_pass.encode()
-            elif isinstance(secret_pass, bytes):
-                secret_bytes = secret_pass
-            else:
-                secret_bytes = str(secret_pass).encode()
-                
+            secret_bytes = secret_pass.encode() if isinstance(secret_pass, str) else bytes(secret_pass)
             computed_hash = hashlib.sha256(secret_bytes).digest()
             
-            if isinstance(correct_hash, str):
-                correct_bytes = correct_hash.encode()
-            else:
-                correct_bytes = correct_hash
-                
-            return hmac.compare_digest(computed_hash, correct_bytes) or hmac.compare_digest(secret_bytes, correct_bytes)
+            # إزالة فرع الـ OR الخاطئ واعتماد المقارنة الصارمة مع الهاش الداخلي فقط
+            return hmac.compare_digest(computed_hash, _state["stored_duress_hash"])
 
         engine_dict = {
             "create_bundle": create_bundle,
@@ -196,8 +176,8 @@ class SovereignDTNTransportSimulator:
     def verify_and_route_bundle(self, bundle: dict, session_key: bytes = None):
         return self._engine["verify_and_route_bundle"](bundle, session_key=session_key)
 
-    def check_duress_trigger(self, secret_pass, correct_hash):
-        return self._engine["check_duress_trigger"](secret_pass, correct_hash)
+    def check_duress_trigger(self, secret_pass):
+        return self._engine["check_duress_trigger"](secret_pass)
 
     def __setattr__(self, name, value):
         raise AttributeError("Direct modification of Layer5 attributes is strictly prohibited (P0.3).")
