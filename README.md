@@ -14,6 +14,7 @@ Experience the deterministic "Fail-Closed" state collapse ($H(X) = 0$) instantly
 git clone https://github.com/Waleed-Mubarak/hailab-sovereign-transport.git
 cd hailab-sovereign-transport
 python3 hailab_sovereign.py
+⁠```⁠
 Architectural Overview
 The framework relies on four strict operational layers:
 Layer 1: Channel Authentication & Cryptographic Transport
