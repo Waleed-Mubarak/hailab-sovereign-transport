@@ -11,7 +11,7 @@ Sovereign Communication & Distributed Edge Architecture
 Experience the deterministic "Fail-Closed" state collapse ($H(X) = 0$) instantly with a single command:
 
 ```bash
-git clone [https://github.com/Waleed-Mubarak/hailab-sovereign-transport.git](https://github.com/Waleed-Mubarak/hailab-sovereign-transport.git)
+git clone https://github.com/Waleed-Mubarak/hailab-sovereign-transport.git
 cd hailab-sovereign-transport
 python3 hailab_sovereign.py
 Architectural Overview
