@@ -3,6 +3,16 @@
 **Sovereign Communication & Distributed Edge Architecture**
 
 `hailab-sovereign-transport` is a high-assurance, secure, and distributed communication framework designed for sovereign edge nodes. It establishes rigid, multi-layered protocols to govern inter-node interactions, cryptographic transport, and proactive defensive mechanics in hostile environments.
+---
+
+## ⚡ Quickstart Demo (One-Command Test)
+
+Experience the deterministic "Fail-Closed" state collapse ($H(X) = 0$) instantly with a single command:
+
+```bash
+git clone [https://github.com/Waleed-Mubarak/hailab-sovereign-transport.git](https://github.com/Waleed-Mubarak/hailab-sovereign-transport.git)
+cd hailab-sovereign-transport
+python3 hailab_sovereign.py
 
 ## Architectural Overview
 
