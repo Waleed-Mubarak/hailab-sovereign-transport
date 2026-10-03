@@ -1,5 +1,4 @@
-import hmac
-import hashlib
+import types
 
 class SecureNodeSet:
     """حاوية آمنة لعقد الشبكة لا ترث من set لمنع تجاوز العمليات على مستوى لغة C."""
@@ -25,7 +24,7 @@ class SecureNodeSet:
 def create_router_engine(gateway_id: str):
     """
     محرك التوجيه للطبقة الرابعة باستخدام النطاق المغلق (Closure)
-    لمنع الاستيراد المباشر أو التلاعب بالسجلات العامة على مستوى الوحدة.
+    مع تغليفه بـ MappingProxyType لمنع التعديل أو الحقن الخارجي (إصلاح L4-C4).
     """
     _state = {
         "gateway_id": gateway_id,
@@ -43,12 +42,13 @@ def create_router_engine(gateway_id: str):
         # تنفيذ التوجيه الآمن
         return True
 
-    return {
+    # تغليف القاموس بمنع التعديل المباشر (MappingProxyType)
+    return types.MappingProxyType({
         "register_node": register_node,
         "route_message": route_message
-    }
+    })
 
-# غلاف متوافق مع الفئات
+
 class SovereignRouter:
     def __init__(self, gateway_id: str):
         self._engine = create_router_engine(gateway_id)
