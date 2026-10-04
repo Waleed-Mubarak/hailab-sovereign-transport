@@ -1,34 +1,35 @@
 import os
-import glob
 
-def clean_test_filenames(tests_dir="tests"):
-    """
-    بحث وإزالة الرموز الخفية مثل #U2060 من أسماء ملفات الاختبار 
-    لضمان اكتشافها الكامل بواسطة pytest.
-    """
-    if not os.path.exists(tests_dir):
-        print(f"Directory '{tests_dir}' not found. Creating a clean structure...")
-        os.makedirs(tests_dir, exist_ok=True)
-        return
 
-    # البحث عن أي ملفات تحتوي على الرمز أو التلوث
-    pattern = os.path.join(tests_dir, "*")
-    files = glob.glob(pattern)
-    
-    cleaned_count = 0
-    for filepath in files:
-        dirname, filename = os.path.split(filepath)
-        # تنظيف اسم الملف من أي رموز تالفة أو #U2060
-        new_filename = filename.replace("#U2060", "").replace("\\u2060", "")
-        
-        if new_filename != filename:
-            new_filepath = os.path.join(dirname, new_filename)
-            os.rename(filepath, new_filepath)
-            print(f"Cleaned: '{filename}' -> '{new_filename}'")
+def clean_file_contents():
+  """البحث داخل محتوى جميع ملفات المستودع وإزالة رموز اليونيكود الخفية (#U2060 وغيرها)"""
+  unicode_chars = ["\u2060", "\u200b", "\u200c", "\u200d", "\ufeff"]
+  cleaned_count = 0
+
+  for root, dirs, files in os.walk("."):
+    if ".git" in root or "__pycache__" in root or ".github" in root:
+      continue
+    for file in files:
+      if file.endswith((".py", ".md", ".ini", ".toml", ".txt", ".yml")):
+        filepath = os.path.join(root, file)
+        try:
+          with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+
+          new_content = content
+          for char in unicode_chars:
+            new_content = new_content.replace(char, "")
+
+          if new_content != content:
+            with open(filepath, "w", encoding="utf-8") as f:
+              f.write(new_content)
+            print(f"تم تطهير محتوى الملف: {filepath}")
             cleaned_count += 1
-            
-    print(f"Total files cleaned and normalized: {cleaned_count}")
+        except Exception as e:
+          pass
+
+  print(f"إجمالي الملفات التي تم تنظيف محتواها: {cleaned_count}")
+
 
 if __name__ == "__main__":
-    clean_test_filenames()
-
+  clean_file_contents()
