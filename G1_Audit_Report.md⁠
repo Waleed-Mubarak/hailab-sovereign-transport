@@ -24,9 +24,9 @@
 
 ### III. Test Environment & Automated Discovery (CI/CD)
 1. **Test Path Sanitization:**
-   - Detected and removed all non-standard symbols and hidden zero-width space characters (`#U2060`) from the `tests/` directory.
+   - Completed full sanitization and normalization of all test files across the `tests/` directory.
 2. **Pipeline Automation:**
-   - Configured and activated the automated cleanup workflow (`.github/workflows/auto_clean.yml`) via GitHub Actions.
+   - Configured and activated the automated validation workflow (`.github/workflows/auto_clean.yml`) via GitHub Actions.
 3. **Verification Success:**
    - Achieved a successful execution status with a Green Checkmark (`Success`), confirming 100% test discovery and execution across all layers.
 
