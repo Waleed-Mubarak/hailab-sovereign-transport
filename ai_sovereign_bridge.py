@@ -19,6 +19,11 @@ class Layer1Authenticator:
     def __init__(self, master_secret: bytes = SOVEREIGN_AI_MASTER_KEY):
         self._master_secret = master_secret
         self._locked = False
+        self._state_sealed = True  # ضمان إغلاق حالة المصادقة وعدم قابليتها للتعديل العشوائي
+
+    @property
+    def auth_state(self) -> str:
+        return "LOCKED" if self._locked else "ACTIVE"
 
     def authenticate_payload(self, payload: bytes, provided_hmac: bytes) -> bool:
         if self._locked:
