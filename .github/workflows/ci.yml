@@ -19,15 +19,13 @@ jobs:
         with:
           python-version: "3.10"
 
-      - name: Install Dependencies & Package
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pytest
-          # إنشاء setup.py مؤقت وسريع لضمان رؤية بايثون لكل الملفات الفردية في الجذر
-          echo "from setuptools import setup" > setup.py
-          echo "setup(name='hailab-sovereign', version='0.1.0', py_modules=['wp6_pqc_layer', 'cbt_compatibility_layer', 'cryptography_security_layer', 'sovereign_transport_kernel', 'ai_sovereign_bridge', 'audit_verifier', 'chaos_sim', 'hailab_sovereign'])" >> setup.py
-          pip install -e .
 
       - name: Run Pytest Security Suite
+        env:
+          PYTHONPATH: .
         run: |
-          pytest -v
+          python -m pytest -v
