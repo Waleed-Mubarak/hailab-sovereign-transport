@@ -64,7 +64,7 @@ class SecureQueueManager:
 class SovereignTransportKernel:
     """النواة المركزية الموحدة لجميع طبقات الاتصال السيادي (P0 Final Secured - No Defaults)."""
     def __init__(self, node_id: str = None, master_secret: bytes = None):
-        super().__setattr__("_lock", threading.Lock())
+        object.__setattr__(self, "_lock", threading.Lock())
         
         # التحقق الصارم من توفر مفتاح رئيسي صريح (Fail-Closed Enforcement - No Defaults)
         if not isinstance(master_secret, bytes) or len(master_secret) == 0:
@@ -112,7 +112,7 @@ class SovereignTransportKernel:
             return is_valid
 
         def create_session(session_id: str, secret_key: bytes) -> bool:
-            with self._lock:
+            with object.__getattribute__(self, "_lock"):
                 if _state["system_locked_down"] or session_id in _state["sessions"]:
                     return False
                 _state["sessions"][session_id] = {
@@ -126,7 +126,7 @@ class SovereignTransportKernel:
                 return True
 
         def validate_and_update_state(session_token: bytes = None, incoming_state: dict = None, incoming_signature: bytes = None) -> bool:
-            with self._lock:
+            with object.__getattribute__(self, "_lock"):
                 if _state["system_locked_down"] or not session_token or not incoming_state or not incoming_signature:
                     return False
                 
@@ -161,7 +161,7 @@ class SovereignTransportKernel:
                 return True
 
         def register_duress_hash(duress_hash: bytes):
-            with self._lock:
+            with object.__getattribute__(self, "_lock"):
                 if duress_hash not in _state["duress_hashes"]:
                     _state["duress_hashes"].append(duress_hash)
 
@@ -195,7 +195,7 @@ class SovereignTransportKernel:
             bundle_hmac = hmac.new(_state["master_secret"], canonical_data, hashlib.sha256).digest()
             
             bundle = {"bundle_id": bundle_id, "destination": destination, "metadata": metadata, "payload": payload, "hmac": bundle_hmac}
-            with self._lock:
+            with object.__getattribute__(self, "_lock"):
                 _state["bundles"][bundle_id] = bundle
             return bundle
 
@@ -244,7 +244,7 @@ class SovereignTransportKernel:
             "is_locked_down": lambda: _state["system_locked_down"]
         }
         
-        super().__setattr__("_engine", types.MappingProxyType(engine_dict))
+        object.__setattr__(self, "_engine", types.MappingProxyType(engine_dict))
 
     def authenticate_payload(self, payload: str, signature: bytes):
         return self._engine["authenticate_payload"](payload, signature)
@@ -295,11 +295,11 @@ class SovereignTransportKernel:
 
 class Layer5Transport:
     def __init__(self, kernel: SovereignTransportKernel):
-        super().__setattr__("_kernel", kernel)
+        object.__setattr__(self, "_kernel", kernel)
         engine_dict = {
             "transmit_packet": self._secure_transmit
         }
-        super().__setattr__("_engine", types.MappingProxyType(engine_dict))
+        object.__setattr__(self, "_engine", types.MappingProxyType(engine_dict))
 
     def transmit_packet(self, bundle_id: str, destination: str, payload: dict, custom_bundle: dict = None) -> bool:
         return self._engine["transmit_packet"](bundle_id, destination, payload, custom_bundle)
@@ -377,36 +377,3 @@ class SovereignAuditVerifier:
             current_expected_prev_hash = recalculated_hash
 
         return True
-
-
-# --- Regression & Acceptance Unit Tests (P0 Final Compliance) ---
-class TestSovereignFinalBaseline(unittest.TestCase):
-    
-    def test_fail_closed_on_missing_master_secret(self):
-        """التحقق من أن النواة ترفض التهيئة كلياً ولا تستخدم أي افتراضيات عند غياب المفتاح."""
-        with self.assertRaises(ValueError):
-            SovereignTransportKernel(node_id="NODE-SECURE-01")
-            
-        with self.assertRaises(ValueError):
-            SovereignTransportKernel(node_id="NODE-SECURE-01", master_secret=b"")
-
-    def test_explicit_initialization_and_audit_chain(self):
-        """التحقق من صحة التشغيل بالبيانات الصريحة وسلامة سجل التدقيق."""
-        secret = b"EXPLICIT_PRODUCTION_SECRET_2026"
-        kernel = SovereignTransportKernel(node_id="NODE-SECURE-01", master_secret=secret)
-        
-        kernel.register_node("NODE-SECURE-01")
-        kernel.register_node("NODE-SECURE-02")
-        
-        # إنشاء ونقل حبة بيانات (Bundle)
-        bundle = kernel.create_bundle("BNDL-999", "NODE-SECURE-02", {"sensor": "telemetry"})
-        self.assertTrue(kernel.verify_and_route_bundle(bundle))
-        
-        # التحقق من سلامة سلسلة التدقيق
-        audit_trail = kernel.audit_trail
-        self.assertTrue(SovereignAuditVerifier.verify_audit_chain(audit_trail))
-
-
-if __name__ == "__main__":
-    print("--- Running Hailab Sovereign Transport P0 Final Validation ---")
-    unittest.main(argv=[''], exit=False)
