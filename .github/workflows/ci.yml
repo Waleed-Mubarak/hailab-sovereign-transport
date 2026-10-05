@@ -19,6 +19,13 @@ jobs:
         with:
           python-version: "3.10"
 
+      - name: Debug File Structure
+        run: |
+          echo "=== Current Directory ==="
+          pwd
+          echo "=== Directory Contents ==="
+          ls -R
+
       - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
@@ -26,6 +33,6 @@ jobs:
 
       - name: Run Pytest Security Suite
         env:
-          PYTHONPATH: ./:layer1_transport:layer2_transport:layer3_transport:layer4_transport:layer5_transport
+          PYTHONPATH: .
         run: |
-          pytest -v
+          python -m pytest -v
