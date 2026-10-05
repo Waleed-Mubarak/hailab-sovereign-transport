@@ -11,7 +11,7 @@ Description: Integrates deterministic cryptographic verification primitives
 import hashlib
 import hmac
 
-class SovereignIntegrityEnvelope:
+class SovereignPQCEnvelope:
     def __init__(self, node_id: str, shared_secret: bytes):
         self.node_id = node_id
         self.shared_secret = shared_secret
@@ -31,11 +31,11 @@ class SovereignIntegrityEnvelope:
         expected_signature = self.sign_bundle(payload)
         return hmac.compare_digest(expected_signature, signature)
 
-def process_integrity_bundle(node_id: str, shared_secret: bytes, payload: bytes, signature: bytes) -> str:
+def process_pqc_bundle(node_id: str, shared_secret: bytes, payload: bytes, signature: bytes) -> str:
     """
     Core processing function enforcing Fail-Closed security under WP6.
     """
-    envelope = SovereignIntegrityEnvelope(node_id, shared_secret)
+    envelope = SovereignPQCEnvelope(node_id, shared_secret)
     is_valid = envelope.verify_bundle(payload, signature)
     
     if not is_valid:
