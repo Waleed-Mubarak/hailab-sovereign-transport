@@ -1,13 +1,13 @@
-# WP6: Post-Quantum Cryptography (PQC) - Technical Report & Integration
+# WP6: HMAC-SHA3-512 Cryptographic Integrity - Technical Report & Integration
 
 ## 1. Executive Summary
-Work Package 6 (WP6) introduces advanced post-quantum cryptographic primitives into the Hailab Sovereign Transport DTN architecture. Building upon `HAILAB_CERTIFIED_BASELINE_v1`, this phase fortifies the node-to-node communication layers against potential future decryption threats posed by quantum computing, maintaining strict zero-trust and fail-closed standards.
+Work Package 6 (WP6) introduces advanced cryptographic integrity primitives into the Hailab Sovereign Transport DTN architecture. Building upon `HAILAB_CERTIFIED_BASELINE_v1`, this phase fortifies the node-to-node communication layers against message tampering threats, maintaining strict zero-trust and fail-closed standards.
 
 ---
 
-## 2. PQC Envelope Architecture (`wp6_pqc_layer.py`)
-* **Quantum-Resistant Binding**: Implements state-of-the-art cryptographic envelope simulation (`SovereignPQCEnvelope`) utilizing high-entropy hashing and keyed-hash message authentication.
-* **Payload Verification**: Validates active bundles against simulated quantum-resistant signature standards.
+## 2. HMAC-SHA3-512 Envelope Architecture (`wp6_pqc_layer.py`)
+* **Cryptographic Binding**: Implements cryptographic envelope simulation (`SovereignHMACEnvelope`) utilizing high-entropy hashing and keyed-hash message authentication (HMAC-SHA3-512).
+* **Payload Verification**: Validates active bundles against standard cryptographic signature and HMAC-SHA3-512 standards.
 * **Fail-Closed Enforcement**: Ensures that any cryptographic mismatch or signature corruption immediately triggers `FAIL_CLOSED_ABORT`, neutralizing potential interception vectors.
 
 ---
@@ -19,9 +19,8 @@ Work Package 6 (WP6) introduces advanced post-quantum cryptographic primitives i
 ---
 
 ## 4. Final System Upgrades & Certification
-* **Upgraded Baseline**: `HAILAB_CERTIFIED_BASELINE_v1` + `WP6 PQC Layer`
-* **Final Status**: **FULLY UPGRADED, QUANTUM-RESISTANT, & OPERATIONAL**
+* **Upgraded Baseline**: `HAILAB_CERTIFIED_BASELINE_v1` + `WP6 HMAC-SHA3-512 Layer`
+* **Final Status**: **FULLY UPGRADED, CRYPTOGRAPHICALLY SECURED, & OPERATIONAL**
 
 ---
 *Certified under Hailab Sovereign Defense Standards.*
-
