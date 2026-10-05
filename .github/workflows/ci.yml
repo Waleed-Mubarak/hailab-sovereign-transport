@@ -26,5 +26,7 @@ jobs:
           pip install -e .
 
       - name: Execute Full Security Regression and Pytest Suite
+        env:
+          PYTHONPATH: .
         run: |
-          python -m pytest tests/ -v
+          python -m pytest tests/ -v --import-mode=importlib
