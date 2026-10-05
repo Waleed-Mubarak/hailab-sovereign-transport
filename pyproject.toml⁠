@@ -10,5 +10,14 @@ dependencies = [
     "pytest"
 ]
 
-[tool.setuptools.packages.find]
-include = ["layer*"]
+[tool.setuptools]
+py-modules = [
+    "wp6_pqc_layer",
+    "cbt_compatibility_layer",
+    "cryptography_security_layer",
+    "sovereign_transport_kernel",
+    "ai_sovereign_bridge",
+    "audit_verifier",
+    "chaos_sim",
+    "hailab_sovereign"
+]
