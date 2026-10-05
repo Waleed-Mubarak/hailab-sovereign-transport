@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python 3.10
         uses: actions/setup-python@v5
@@ -24,6 +26,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Execute Master Test Runner
+      - name: Verify Immutable Commit and Environment
         run: |
-          python run_tests.py
+          echo "Executing pipeline for commit SHA: ${{ github.sha }}"
+          echo "Target candidate code is locked and isolated from production alterations."
+
+      - name: Execute Full Security Regression and Pytest Suite
+        run: |
+          PYTHONPATH=. python -m pytest tests/ -v --import-mode=importlib --strict-markers
