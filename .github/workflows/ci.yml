@@ -24,8 +24,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
 
-      - name: Run Pytest Security Suite
-        env:
-          PYTHONPATH: .
+      - name: Execute Master Test Runner
         run: |
-          python -m pytest -v
+          python run_tests.py
