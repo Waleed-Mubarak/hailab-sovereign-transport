@@ -25,5 +25,7 @@ jobs:
           pip install pytest
 
       - name: Run Pytest Security Suite
+        env:
+          PYTHONPATH: ./:layer1_transport:layer2_transport:layer3_transport:layer4_transport:layer5_transport
         run: |
-          python -m pytest -o pythonpath="." -v
+          pytest -v
