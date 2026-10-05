@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 setup(
     name="hailab-sovereign-transport",
     version="0.1.0",
-    py-modules=[
+    py_modules=[
         "wp6_pqc_layer",
         "cbt_compatibility_layer",
         "cryptography_security_layer",
@@ -13,6 +13,5 @@ setup(
         "chaos_sim",
         "hailab_sovereign",
         "sim"
-    ],
+    ]
 )
-
