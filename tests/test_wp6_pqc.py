@@ -11,7 +11,7 @@ import sys
 import os
 import unittest
 
-# إضافة المجلد الرئيسي للمشروع إلى مسار البحث لضمان نجاح الاستيراد
+# إجبار بايثون على رؤية جذر المشروع لاستيراد النواة بشكل صحيح
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from wp6_pqc_layer import SovereignPQCEnvelope, process_pqc_bundle
