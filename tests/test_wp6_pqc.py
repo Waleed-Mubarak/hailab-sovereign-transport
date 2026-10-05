@@ -7,7 +7,13 @@ Description: Validates post-quantum cryptographic envelope signing,
 =============================================================
 """
 
+import sys
+import os
 import unittest
+
+# إضافة المجلد الرئيسي للمشروع إلى مسار البحث لضمان نجاح الاستيراد
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from wp6_pqc_layer import SovereignPQCEnvelope, process_pqc_bundle
 
 class TestSovereignPQC(unittest.TestCase):
@@ -37,4 +43,3 @@ class TestSovereignPQC(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
