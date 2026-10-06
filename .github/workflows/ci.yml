@@ -1,31 +1,32 @@
-name: Sovereign Transport CI - Elite Defense Grade
+name: CI Security Regression Suite
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "master" ]
 
 jobs:
-  build-and-test:
+  security-tests:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python 3.10
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.10"
+    - name: Set up Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.10"
+        cache: 'pip'
 
-      - name: Install Dependencies and Package
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest
-          pip install -e .
-         - name: Execute Full Security Regression and Pytest Suite
-        env:
-          PYTHONPATH: .
-        run: |
-          python -m pytest tests/ -v
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+
+    - name: Execute Full Security Regression and Pytest Suite
+      env:
+        PYTHONPATH: .
+      run: |
+        python -m pytest tests/ -v
