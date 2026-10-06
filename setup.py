@@ -2,7 +2,8 @@ from setuptools import setup, find_packages
 
 setup(
     name="hailab-sovereign-transport",
-    version="0.1.0",
+    version="1.0.0",
+    packages=find_packages(exclude=["tests*"]),
     py_modules=[
         "wp6_pqc_layer",
         "cbt_compatibility_layer",
@@ -13,5 +14,8 @@ setup(
         "chaos_sim",
         "hailab_sovereign",
         "sim"
-    ]
+    ],
+    install_requires=[
+        "pytest",
+    ],
 )
