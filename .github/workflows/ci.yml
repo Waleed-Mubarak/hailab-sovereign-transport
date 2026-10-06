@@ -24,8 +24,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest
           pip install -e .
-
-      - name: Execute Full Security Regression and Pytest Suite
+         - name: Execute Full Security Regression and Pytest Suite
         env:
           PYTHONPATH: .
         run: |
