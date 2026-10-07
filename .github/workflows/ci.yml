@@ -26,8 +26,8 @@ jobs:
 
     - name: Run WP6 Test Directly
       run: |
-        python test_wp6_pqc.py
+        PYTHONPATH=. python test_wp6_pqc.py
 
     - name: Run WP2 Tests via Pytest
       run: |
-        pytest test_wp2_sim.py -v
+        PYTHONPATH=. pytest test_wp2_sim.py -v
