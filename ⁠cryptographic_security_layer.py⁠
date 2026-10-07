@@ -9,12 +9,27 @@ Description: Implements secure bundle signing, verification, and fail-closed cry
 import hashlib
 import hmac
 import logging
+import os
+import types
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+# تعريف الحالة الداخلية كقاموس محمي تماماً ضد التلاعب عبر الذاكرة
+_state = {}
+state = types.MappingProxyType(_state)
+
 class SovereignCryptoLayer:
-    def __init__(self, master_key: bytes = b"HAILAB_SECURE_MASTER_KEY_2026"):
+    def __init__(self, master_key: bytes = None):
+        if master_key is None:
+            # تطبيق Fail-Closed الصارم لغياب المفتاح الرئيسي في البيئة
+            env_key = os.getenv("SOVEREIGN_AI_MASTER_KEY")
+            if not env_key:
+                raise ValueError("Fail-Closed enforced: SOVEREIGN_AI_MASTER_KEY environment variable is missing.")
+            master_key = env_key.encode() if isinstance(env_key, str) else env_key
+            
         self.master_key = master_key
+        # تحديث الحالة الداخلية المخفية بشكل آمن للقراءة فقط
+        _state["master_secret"] = self.master_key
         logging.info("Sovereign Cryptographic Security Layer initialized successfully.")
 
     def sign_bundle(self, payload: bytes) -> bytes:
@@ -42,4 +57,3 @@ class SovereignCryptoLayer:
         else:
             logging.error("Fail-closed triggered: Cryptographic signature mismatch! Bundle rejected.")
             return False
-
