@@ -34,4 +34,4 @@ jobs:
       env:
         PYTHONPATH: ${{ github.workspace }}
       run: |
-        pytest test_wp2_sim.py -v
+        pytest test_wp2.py -v
