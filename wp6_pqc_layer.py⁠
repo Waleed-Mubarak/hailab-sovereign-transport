@@ -30,6 +30,6 @@ def process_integrity_bundle(node_id: str, shared_secret: bytes, payload: bytes,
         return "FAIL_CLOSED_ABORT"
     return "SECURE_INTEGRITY_ACCEPTED"
 
-# دعم الأسماء السابقة لتتوافق مع أي اختبار قديم يستدعي PQC أيضاً
+# دعم الأسماء لتتوافق بسلاسة مع الاختبارات
 SovereignPQCEnvelope = SovereignIntegrityEnvelope
 process_pqc_bundle = process_integrity_bundle
