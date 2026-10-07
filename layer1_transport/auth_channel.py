@@ -1,5 +1,19 @@
-import hmac
+"""
+=============================================================
+Project: Hailab Sovereign Transport
+Component: Layer 1 Sovereign Channel Engine & Cryptographic Security
+Description: Provides secure bundle signing, verification, fail-closed 
+             checks, and sovereign channel engine with full state protection.
+=============================================================
+"""
+
 import hashlib
+import hmac
+import logging
+import types
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
 
 class SecureSetContainer:
     """حاوية بيانات آمنة لا ترث من set لمنع تجاوز العمليات على مستوى لغة C."""
@@ -69,3 +83,25 @@ def check_duress_trigger(presented_input: str, stored_duress_hash: bytes) -> boo
     except Exception:
         # الإغلاق الآمن في حالة الطفرة العدائية
         return False
+
+
+class SovereignChannelEngine:
+    """فئة قناة النقل السيادية المدعومة بحماية الحالة الداخلية والتحقق الصارم."""
+    def __init__(self, node_id: str = "DEFAULT-NODE", master_secret: bytes = b"default_secure_secret_32_bytes"):
+        self.node_id = node_id
+        self._master_secret = master_secret
+        self.channel_closures = create_auth_channel(node_id, master_secret)
+        
+        # حماية الحالة الداخلية باستخدام MappingProxyType لإغلاق ثغرة G1-8 نهائياً
+        self._state_dict = {
+            "node_id": node_id,
+            "status": "ACTIVE"
+        }
+        self.state = types.MappingProxyType(self._state_dict)
+        logging.info("SovereignChannelEngine initialized successfully with secure state protection.")
+
+    def authenticate_payload(self, payload: str, signature: bytes, destination: str = "") -> bool:
+        return self.channel_closures["authenticate_payload"](payload, signature, destination)
+
+    def verify_nonce(self, nonce: str) -> bool:
+        return self.channel_closures["verify_nonce"](nonce)
