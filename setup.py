@@ -1,9 +1,8 @@
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="hailab-sovereign-transport",
     version="1.0.0",
-    packages=find_packages(exclude=["tests*"]),
     py_modules=[
         "wp2_sim",
         "wp3_sim",
