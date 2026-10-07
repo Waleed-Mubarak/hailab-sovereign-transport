@@ -22,9 +22,12 @@ jobs:
     - name: Install Dependencies
       run: |
         python -m pip install --upgrade pip
+        pip install pytest
 
-    - name: Run Test Directly
-      env:
-        PYTHONPATH: ${{ github.workspace }}
+    - name: Run WP6 Test Directly
       run: |
         python test_wp6_pqc.py
+
+    - name: Run WP2 Tests via Pytest
+      run: |
+        pytest test_wp2_sim.py -v
