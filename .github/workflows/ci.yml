@@ -19,15 +19,16 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Debug and List Files
+    - name: Install Package and Dependencies
       run: |
-        pwd
-        ls -la
+        python -m pip install --upgrade pip
+        pip install pytest
+        pip install -e .
 
     - name: Run WP6 Test Directly
       run: |
-        PYTHONPATH=. python test_wp6_pqc.py
+        python test_wp6_pqc.py
 
     - name: Run WP2 Tests via Pytest
       run: |
-        PYTHONPATH=. pytest test_wp2_sim.py -v
+        pytest test_wp2_sim.py -v
