@@ -11,8 +11,8 @@ import sys
 from pathlib import Path
 import unittest
 
-# تعديل المسار ليشير للمجلد الرئيسي للمشروع حيث يوجد wp6_pqc_layer.py
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# إجبار بايثون على قراءة المجلد الحالي كمسار رئيسي للجذر لضمان رؤية الملفات
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from wp6_pqc_layer import SovereignPQCEnvelope, process_pqc_bundle
 
